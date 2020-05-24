@@ -1,13 +1,13 @@
 # MFDedup
 A Management Friendly Deduplication Prototype System for Backup
 
-###Requirement:
+### Requirement:
 + isal_crypto
 + jemalloc
 + openssl
 + glib
 
-###Usage:
+### Usage:
 
 + Write a series of versions into the system
 ```
