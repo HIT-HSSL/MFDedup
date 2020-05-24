@@ -142,8 +142,6 @@ private:
                 printf("Do not need to GC, Skip\n");
                 gcTask->countdownLatch->countDown();
             }
-exit:
-            return;
         }
     }
 
