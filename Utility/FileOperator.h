@@ -81,7 +81,7 @@ public:
     }
 
     int getFd() {
-        return file->_fileno;
+        return fileno(file);
     }
 
 private:

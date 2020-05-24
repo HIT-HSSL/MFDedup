@@ -7,10 +7,12 @@
 #ifndef MFDEDUP_RESTOREPIPLELINE_H
 #define MFDEDUP_RESTOREPIPLELINE_H
 
+#include <bits/types/FILE.h>
+#include <stdio.h>
 #include "../MetadataManager/MetadataManager.h"
 
 DEFINE_uint64(RestoreReadBufferLength,
-536870912, "WriteBufferLength");
+2097152, "WriteBufferLength");
 
 struct RestoreEntry {
     uint64_t pos;
@@ -143,26 +145,35 @@ private:
     int writeFromVersionFile(uint64_t versionId, uint64_t restoreVersion, FileOperator *restoreWriter) {
         sprintf(filePath, FLAGS_VersionFilePath.data(), versionId);
         FileOperator versionReader(filePath, FileOpenType::Read);
+        int fd = versionReader.getFd();
 
         VersionFileHeader versionFileHeader;
-        versionReader.read((uint8_t * ) & versionFileHeader, sizeof(VersionFileHeader));
+
+        //uint64_t r = fread(&versionFileHeader, sizeof(VersionFileHeader), 1, versionReader);
+        //.read((uint8_t * ) & versionFileHeader, sizeof(VersionFileHeader));
+        read(fd, &versionFileHeader, sizeof(VersionFileHeader));
+
         uint64_t *offset = (uint64_t *) malloc(versionFileHeader.offsetCount * sizeof(uint64_t));
-        versionReader.read((uint8_t *) offset, versionFileHeader.offsetCount * sizeof(uint64_t));
+        //r = fread(offset, versionFileHeader.offsetCount * sizeof(uint64_t), 1, versionReader);
+        //versionReader.read((uint8_t *) offset, versionFileHeader.offsetCount * sizeof(uint64_t));
+        read(fd, offset, versionFileHeader.offsetCount * sizeof(uint64_t));
+
         uint64_t leftLength = 0;
         for (int i = 0; i < restoreVersion; i++) {
             leftLength += offset[i];
         }
 
         uint8_t *readBuffer = (uint8_t *) malloc(FLAGS_RestoreReadBufferLength);
-        int readBufferLeft = 0;
-        int readOffset = 0;
+        uint64_t readBufferLeft = 0;
+        uint64_t readOffset = 0;
         BlockHeaderAlter *blockHeader;
         uint8_t *chunkPtr;
 
         while (leftLength > 0) {
             memcpy(readBuffer, readBuffer + readOffset, readBufferLeft);
-            int readBytes = versionReader.read(readBuffer + readBufferLeft,
-                                               FLAGS_RestoreReadBufferLength - readBufferLeft);
+            //uint64_t readBytes = fread(readBuffer + readBufferLeft, 1, FLAGS_RestoreReadBufferLength - readBufferLeft, versionReader);
+            uint64_t readBytes = read(fd, readBuffer + readBufferLeft, FLAGS_RestoreReadBufferLength - readBufferLeft);
+            //uint64_t readBytes = versionReader.read(readBuffer + readBufferLeft, FLAGS_RestoreReadBufferLength - readBufferLeft);
             readBufferLeft += readBytes;
             readOffset = 0;
 
@@ -198,14 +209,14 @@ private:
         FileOperator classReader(filePath, FileOpenType::Read);
         uint64_t leftLength = FileOperator::size(filePath);
         uint8_t *readBuffer = (uint8_t *) malloc(FLAGS_RestoreReadBufferLength);
-        int readBufferLeft = 0;
-        int readOffset = 0;
+        uint64_t readBufferLeft = 0;
+        uint64_t readOffset = 0;
         BlockHeaderAlter *blockHeader;
         uint8_t *chunkPtr;
 
         while (leftLength > 0) {
             memcpy(readBuffer, readBuffer + readOffset, readBufferLeft);
-            int readBytes = classReader.read(readBuffer + readBufferLeft,
+            uint64_t readBytes = classReader.read(readBuffer + readBufferLeft,
                                              FLAGS_RestoreReadBufferLength - readBufferLeft);
             readBufferLeft += readBytes;
             readOffset = 0;
