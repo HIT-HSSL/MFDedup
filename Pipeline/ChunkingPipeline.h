@@ -98,9 +98,9 @@ private:
                 MutexLockGuard mutexLockGuard(mutexLock);
                 while (!taskAmount) {
                     condition.wait();
-                    if (!runningFlag) break;
+                    if (unlikely(!runningFlag)) break;
                 }
-                if (!runningFlag) continue;
+                if (unlikely(!runningFlag)) continue;
                 taskAmount--;
                 chunkTask = taskList.front();
                 taskList.pop_front();

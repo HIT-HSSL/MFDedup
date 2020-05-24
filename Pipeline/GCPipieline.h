@@ -91,8 +91,9 @@ private:
                 MutexLockGuard mutexLockGuard(mutexLock);
                 while (!taskAmount) {
                     condition.wait();
-                    if (!runningFlag) break;
+                    if (unlikely(!runningFlag)) break;
                 }
+                if (unlikely(!runningFlag)) continue;
                 taskAmount--;
                 gcTask = taskList.front();
                 taskList.pop_front();
@@ -141,6 +142,8 @@ private:
                 printf("Do not need to GC, Skip\n");
                 gcTask->countdownLatch->countDown();
             }
+exit:
+            return;
         }
     }
 

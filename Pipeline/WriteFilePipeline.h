@@ -59,9 +59,9 @@ private:
                 MutexLockGuard mutexLockGuard(mutexLock);
                 while (!taskAmount) {
                     condition.wait();
-                    if (!runningFlag) break;
+                    if (unlikely(!runningFlag)) break;
                 }
-                if (!runningFlag) continue;
+                if (unlikely(!runningFlag)) continue;
                 taskAmount = 0;
                 condition.notify();
                 taskList.swap(receiveList);
