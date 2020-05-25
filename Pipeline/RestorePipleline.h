@@ -145,18 +145,13 @@ private:
     int writeFromVersionFile(uint64_t versionId, uint64_t restoreVersion, FileOperator *restoreWriter) {
         sprintf(filePath, FLAGS_VersionFilePath.data(), versionId);
         FileOperator versionReader(filePath, FileOpenType::Read);
-        int fd = versionReader.getFd();
 
         VersionFileHeader versionFileHeader;
 
-        //uint64_t r = fread(&versionFileHeader, sizeof(VersionFileHeader), 1, versionReader);
-        //.read((uint8_t * ) & versionFileHeader, sizeof(VersionFileHeader));
-        read(fd, &versionFileHeader, sizeof(VersionFileHeader));
+        versionReader.read((uint8_t *) &versionFileHeader, sizeof(VersionFileHeader));
 
         uint64_t *offset = (uint64_t *) malloc(versionFileHeader.offsetCount * sizeof(uint64_t));
-        //r = fread(offset, versionFileHeader.offsetCount * sizeof(uint64_t), 1, versionReader);
-        //versionReader.read((uint8_t *) offset, versionFileHeader.offsetCount * sizeof(uint64_t));
-        read(fd, offset, versionFileHeader.offsetCount * sizeof(uint64_t));
+        versionReader.read((uint8_t *) offset, versionFileHeader.offsetCount * sizeof(uint64_t));
 
         uint64_t leftLength = 0;
         for (int i = 0; i < restoreVersion; i++) {
@@ -170,16 +165,16 @@ private:
         uint8_t *chunkPtr;
 
         while (leftLength > 0) {
+            uint64_t bytesToRead =
+                    leftLength > FLAGS_RestoreReadBufferLength ? FLAGS_RestoreReadBufferLength : leftLength;
             memcpy(readBuffer, readBuffer + readOffset, readBufferLeft);
-            //uint64_t readBytes = fread(readBuffer + readBufferLeft, 1, FLAGS_RestoreReadBufferLength - readBufferLeft, versionReader);
-            uint64_t readBytes = read(fd, readBuffer + readBufferLeft, FLAGS_RestoreReadBufferLength - readBufferLeft);
-            //uint64_t readBytes = versionReader.read(readBuffer + readBufferLeft, FLAGS_RestoreReadBufferLength - readBufferLeft);
-            readBufferLeft += readBytes;
+            uint64_t bytesFinallyRead = versionReader.read(readBuffer + readBufferLeft, bytesToRead - readBufferLeft);
+            readBufferLeft += bytesFinallyRead;
             readOffset = 0;
 
             while (1) {
                 if (leftLength == 0) break;
-                blockHeader = (BlockHeaderAlter * )(readBuffer + readOffset);
+                blockHeader = (BlockHeaderAlter *) (readBuffer + readOffset);
                 chunkPtr = readBuffer + readOffset + sizeof(BlockHeaderAlter);
                 if (readBufferLeft < sizeof(BlockHeaderAlter) ||
                     readBufferLeft < (sizeof(BlockHeaderAlter) + blockHeader->length)) {
@@ -215,14 +210,15 @@ private:
         uint8_t *chunkPtr;
 
         while (leftLength > 0) {
+            uint64_t bytesToRead =
+                    leftLength > FLAGS_RestoreReadBufferLength ? FLAGS_RestoreReadBufferLength : leftLength;
             memcpy(readBuffer, readBuffer + readOffset, readBufferLeft);
-            uint64_t readBytes = classReader.read(readBuffer + readBufferLeft,
-                                             FLAGS_RestoreReadBufferLength - readBufferLeft);
-            readBufferLeft += readBytes;
+            uint64_t bytesFinallyRead = classReader.read(readBuffer + readBufferLeft, bytesToRead - readBufferLeft);
+            readBufferLeft += bytesFinallyRead;
             readOffset = 0;
 
             while (1) {
-                blockHeader = (BlockHeaderAlter * )(readBuffer + readOffset);
+                blockHeader = (BlockHeaderAlter *) (readBuffer + readOffset);
                 chunkPtr = readBuffer + readOffset + sizeof(BlockHeaderAlter);
                 if (readBufferLeft < sizeof(BlockHeaderAlter) ||
                     readBufferLeft < (sizeof(BlockHeaderAlter) + blockHeader->length)) {
