@@ -116,9 +116,9 @@ int main(int argc, char **argv) {
         printf("1. Write a series of versions into system\n");
         printf("MFDedup --task=write --Path=[a file contains a list of files to write]\n");
         printf("2. Restore a version of from the system\n");
-        printf("MFDedup --task=restore --RestorePath=[where the restored file is to locate] --RestoreRecipe=[which version to restore(1 ~ no. of the last version)] --MaxVersion=[How many versions exists in the system]\n");
+        printf("MFDedup --task=restore --RestorePath=[where the restored file is to locate] --RestoreRecipe=[which version to restore(1 ~ no. of the last version)] --MaxVersion=[How many versions exist in the system]\n");
         printf("3. Eliminate the earliest version in the system\n");
-        printf("MFDedup --task=eliminate --MaxVersion=[How many versions exists in the system]\n");
+        printf("MFDedup --task=eliminate --MaxVersion=[How many versions exist in the system]\n");
         printf("4. Check status of the system\n");
         printf("MFDedup --task=status\n");
         printf("--------------------------------------------------\n");

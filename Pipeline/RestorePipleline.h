@@ -12,7 +12,7 @@
 #include "../MetadataManager/MetadataManager.h"
 
 DEFINE_uint64(RestoreReadBufferLength,
-              134217728, "WriteBufferLength");
+              8388608, "WriteBufferLength");
 
 struct RestoreEntry {
     uint64_t pos;
@@ -145,13 +145,19 @@ private:
     int writeFromVersionFile(uint64_t versionId, uint64_t restoreVersion, FileOperator *restoreWriter) {
         sprintf(filePath, FLAGS_VersionFilePath.data(), versionId);
         FileOperator versionReader(filePath, FileOpenType::Read);
+        int versionFileFD = versionReader.getFd();
+        int restoreWriteFD = restoreWriter->getFd();
 
         VersionFileHeader versionFileHeader;
 
-        versionReader.read((uint8_t *) &versionFileHeader, sizeof(VersionFileHeader));
+        //uint64_t r = fread(&versionFileHeader, sizeof(VersionFileHeader), 1, versionReader);
+        //.read((uint8_t * ) & versionFileHeader, sizeof(VersionFileHeader));
+        read(versionFileFD, &versionFileHeader, sizeof(VersionFileHeader));
 
         uint64_t *offset = (uint64_t *) malloc(versionFileHeader.offsetCount * sizeof(uint64_t));
-        versionReader.read((uint8_t *) offset, versionFileHeader.offsetCount * sizeof(uint64_t));
+        //r = fread(offset, versionFileHeader.offsetCount * sizeof(uint64_t), 1, versionReader);
+        //versionReader.read((uint8_t *) offset, versionFileHeader.offsetCount * sizeof(uint64_t));
+        read(versionFileFD, offset, versionFileHeader.offsetCount * sizeof(uint64_t));
 
         uint64_t leftLength = 0;
         for (int i = 0; i < restoreVersion; i++) {
@@ -168,11 +174,14 @@ private:
             uint64_t bytesToRead =
                     leftLength > FLAGS_RestoreReadBufferLength ? FLAGS_RestoreReadBufferLength : leftLength;
             memcpy(readBuffer, readBuffer + readOffset, readBufferLeft);
-            uint64_t bytesFinallyRead = versionReader.read(readBuffer + readBufferLeft, bytesToRead - readBufferLeft);
+            uint64_t bytesFinallyRead = read(versionFileFD, readBuffer + readBufferLeft, bytesToRead - readBufferLeft);
+            //uint64_t bytesFinallyRead = versionReader.read(readBuffer + readBufferLeft, FLAGS_RestoreReadBufferLength - readBufferLeft);  // wrapper really scarifies the performance.
             readBufferLeft += bytesFinallyRead;
             readOffset = 0;
 
             while (1) {
+
+
                 if (leftLength == 0) break;
                 blockHeader = (BlockHeaderAlter *) (readBuffer + readOffset);
                 chunkPtr = readBuffer + readOffset + sizeof(BlockHeaderAlter);
@@ -184,11 +193,12 @@ private:
                 auto iter = restoreMap.find(blockHeader->fp);
                 assert(iter->second.size() != 0);
                 for (auto item : iter->second) {
-                    int r = restoreWriter->seek(item.pos);
-                    assert(r == 0);
-                    restoreWriter->write(chunkPtr, item.length);
+                    //int r = restoreWriter->seek(item.pos);    // wrapper really scarifies the performance.
+                    uint64_t r = lseek64(restoreWriteFD, item.pos, SEEK_SET);
+                    assert(r == item.pos);
+                    //restoreWriter->write(chunkPtr, item.length);  // wrapper really scarifies the performance.
+                    write(restoreWriteFD, chunkPtr, item.length);
                 }
-                restoreMap.erase(iter);
 
                 readOffset += sizeof(BlockHeaderAlter) + blockHeader->length;
                 readBufferLeft -= sizeof(BlockHeaderAlter) + blockHeader->length;
@@ -202,6 +212,9 @@ private:
     int writeFromClassFile(uint64_t classId, FileOperator *restoreWriter) {
         sprintf(filePath, FLAGS_ClassFilePath.data(), classId);
         FileOperator classReader(filePath, FileOpenType::Read);
+        int fd = classReader.getFd();
+        int restoreWriteFD = restoreWriter->getFd();
+
         uint64_t leftLength = FileOperator::size(filePath);
         uint8_t *readBuffer = (uint8_t *) malloc(FLAGS_RestoreReadBufferLength);
         uint64_t readBufferLeft = 0;
@@ -209,14 +222,15 @@ private:
         BlockHeaderAlter *blockHeader;
         uint8_t *chunkPtr;
 
+
         while (leftLength > 0) {
             uint64_t bytesToRead =
                     leftLength > FLAGS_RestoreReadBufferLength ? FLAGS_RestoreReadBufferLength : leftLength;
             memcpy(readBuffer, readBuffer + readOffset, readBufferLeft);
-            uint64_t bytesFinallyRead = classReader.read(readBuffer + readBufferLeft, bytesToRead - readBufferLeft);
+            uint64_t bytesFinallyRead = read(fd, readBuffer + readBufferLeft, bytesToRead - readBufferLeft);
+            //uint64_t bytesFinallyRead = classReader.read(readBuffer + readBufferLeft, bytesToRead - readBufferLeft); // wrapper really scarifies the performance.
             readBufferLeft += bytesFinallyRead;
             readOffset = 0;
-
             while (1) {
                 blockHeader = (BlockHeaderAlter *) (readBuffer + readOffset);
                 chunkPtr = readBuffer + readOffset + sizeof(BlockHeaderAlter);
@@ -228,11 +242,13 @@ private:
                 auto iter = restoreMap.find(blockHeader->fp);
                 assert(iter->second.size() != 0);
                 for (auto item : iter->second) {
-                    int r = restoreWriter->seek(item.pos);
-                    assert(r == 0);
-                    restoreWriter->write(chunkPtr, item.length);
+                    //int r = restoreWriter->seek(item.pos);    // wrapper really scarifies the performance.
+                    uint64_t r = lseek64(restoreWriteFD, item.pos, SEEK_SET);
+                    assert(r == item.pos);
+                    //restoreWriter->write(chunkPtr, item.length);  // wrapper really scarifies the performance.
+                    write(restoreWriteFD, chunkPtr, item.length);
                 }
-                restoreMap.erase(iter);
+
 
                 readOffset += sizeof(BlockHeaderAlter) + blockHeader->length;
                 readBufferLeft -= sizeof(BlockHeaderAlter) + blockHeader->length;
