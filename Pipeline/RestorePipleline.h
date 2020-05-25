@@ -12,7 +12,7 @@
 #include "../MetadataManager/MetadataManager.h"
 
 DEFINE_uint64(RestoreReadBufferLength,
-2097152, "WriteBufferLength");
+              134217728, "WriteBufferLength");
 
 struct RestoreEntry {
     uint64_t pos;
