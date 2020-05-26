@@ -54,6 +54,7 @@ public:
 
     void getStatistics() {
         printf("Chunking Duration:%lu\n", duration);
+        printf("function duration:%lu\n", functionDuration);
     }
 
     ~ChunkingPipeline() {
@@ -93,6 +94,8 @@ private:
 
         struct timeval t1, t0;
 
+        struct timeval ct0, ct1;
+
         while (runningFlag) {
             {
                 MutexLockGuard mutexLockGuard(mutexLock);
@@ -123,7 +126,10 @@ private:
 
             if (!chunkTask.countdownLatch) {
                 while (end - posPtr > MaxChunkSize) {
+                    gettimeofday(&ct0, NULL);
                     int chunkSize = fastcdc_chunk_data(data + posPtr, end - posPtr);
+                    gettimeofday(&ct1, NULL);
+                    functionDuration += (ct1.tv_sec - ct0.tv_sec) * 1000000 + ct1.tv_usec - ct0.tv_usec;
                     dedupTask.pos = base;
                     dedupTask.length = chunkSize;
                     dedupTask.index++;
@@ -133,7 +139,10 @@ private:
                 }
             } else {
                 while (end != posPtr) {
+                    gettimeofday(&ct0, NULL);
                     int chunkSize = fastcdc_chunk_data(data + posPtr, end - posPtr);
+                    gettimeofday(&ct1, NULL);
+                    functionDuration += (ct1.tv_sec - ct0.tv_sec) * 1000000 + ct1.tv_usec - ct0.tv_usec;
                     dedupTask.pos = base;
                     dedupTask.length = chunkSize;
                     dedupTask.index++;
@@ -155,7 +164,6 @@ private:
 
 
             gettimeofday(&t1, NULL);
-            duration += (t1.tv_sec - t0.tv_sec) * 1000000 + t1.tv_usec - t0.tv_usec;
             duration += (t1.tv_sec - t0.tv_sec) * 1000000 + t1.tv_usec - t0.tv_usec;
         }
     }
@@ -403,6 +411,8 @@ private:
     uint64_t order = 0;
     uint64_t chunkMask;
     uint64_t chunkMask2;
+
+    uint64_t functionDuration = 0;
 
     int MaxChunkSize;
     int MinChunkSize;
