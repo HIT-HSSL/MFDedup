@@ -121,6 +121,8 @@ private:
                     currentVersion++;
                     newVersionFlag = true;
 
+                    free(writeTask.buffer);
+
                 } else {
 
                 }
