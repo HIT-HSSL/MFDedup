@@ -30,6 +30,7 @@ int main(int argc, char **argv) {
     std::string writeStr("write");
     std::string eliminateStr("eliminate");
 
+
     GlobalReadPipelinePtr = new ReadFilePipeline();
     GlobalChunkingPipelinePtr = new ChunkingPipeline();
     GlobalHashingPipelinePtr = new HashingPipeline();
@@ -55,7 +56,7 @@ int main(int argc, char **argv) {
             gettimeofday(&t0, NULL);
 
             StorageTask storageTask;
-            CountdownLatch countdownLatch(5); // there are 5 pipelines in the workflow of write.
+            CountdownLatch countdownLatch(4); // there are only 4 pipelines in the test.
             storageTask.path = subPath;
             storageTask.countdownLatch = &countdownLatch;
             storageTask.fileID = counter;
@@ -72,15 +73,6 @@ int main(int argc, char **argv) {
             GlobalDeduplicationPipelinePtr->getStatistics();
             GlobalWriteFilePipelinePtr->getStatistics();
             totalSize += storageTask.length;
-            printf("----------------------------------------------\n");
-            printf("GC start\n");
-            CountdownLatch gcLatch(1);
-            GCTask gcTask = {
-                    counter - 1, &gcLatch,
-            };
-            GlobalGCPipelinePtr->addTask(&gcTask);
-            gcLatch.wait();
-            printf("----------------------------------------------\n");
             counter++;
         }
         gettimeofday(&total1, NULL);

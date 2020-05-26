@@ -109,12 +109,6 @@ private:
                         break;
                     case LookupResult::InnerDedup:
                         break;
-                    case LookupResult::NeighborDedup:
-                        metaEntry = {
-                                dedupTask.length, writeTask.oldClass + currentVersion - 1,
-                        };
-                        GlobalMetadataManagerPtr->neighborAddRecord(writeTask.sha1Fp, currentVersion, metaEntry);
-                        break;
                 }
 
                 gettimeofday(&t1, NULL);
@@ -124,14 +118,11 @@ private:
                     printf("DedupPipeline finish\n");
                     writeTask.countdownLatch = dedupTask.countdownLatch;
                     dedupTask.countdownLatch->countDown();
-                    GlobalMetadataManagerPtr->metatableReleaseLatch(currentVersion - 1);
                     currentVersion++;
                     newVersionFlag = true;
 
-                    GlobalWriteFilePipelinePtr->addTask(writeTask);
                 } else {
 
-                    GlobalWriteFilePipelinePtr->addTask(writeTask);
                 }
 
                 writeTask.countdownLatch = nullptr;

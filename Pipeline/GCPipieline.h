@@ -127,7 +127,7 @@ private:
                 versionFile->seek(sizeof(VersionFileHeader));
                 versionFile->write((uint8_t *) offset, sizeof(uint64_t) * gcVersion);
 
-                GlobalMetadataManagerPtr->metatableReleaseLatch(gcVersion + 1);
+                //GlobalMetadataManagerPtr->metatableReleaseLatch(gcVersion + 1);
                 versionFile->fsync();
 
                 delete versionFile;
@@ -182,7 +182,7 @@ private:
                         readBufferLeft < (sizeof(BlockHeaderAlter) + blockHeader->length)) {
                         break;
                     }
-                    int r = GlobalMetadataManagerPtr->gcLookup(blockHeader->fp, gcVersion);
+                    int r = 0;//GlobalMetadataManagerPtr->gcLookup(blockHeader->fp, gcVersion);
                     if (r) {
                         classWriter.writeChunk(blockHeader, sizeof(BlockHeaderAlter), chunkPtr, blockHeader->length);
                         migrateChunks++;
