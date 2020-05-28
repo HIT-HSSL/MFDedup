@@ -12,18 +12,40 @@
 #include "../MetadataManager/MetadataManager.h"
 
 DEFINE_uint64(RestoreReadBufferLength,
-              8388608, "WriteBufferLength");
+16777216, "WriteBufferLength");
 
 struct RestoreEntry {
     uint64_t pos;
-    uint64_t length;
 };
+
+struct RestoreWritingItem {
+    uint8_t *buffer = nullptr;
+    uint64_t length = 0;
+    SHA1FP sha1Fp;
+    bool endflag = false;
+
+    RestoreWritingItem(uint8_t *buf, uint64_t len, const SHA1FP &fp) {
+        buffer = (uint8_t *) malloc(len);
+        memcpy(buffer, buf, len);
+        length = len;
+        sha1Fp = fp;
+    }
+
+    RestoreWritingItem(bool flag) {
+        endflag = true;
+    }
+
+    ~RestoreWritingItem() {
+        free(buffer);
+    }
+};
+
 
 class RestorePipeline {
 public:
     RestorePipeline() : taskAmount(0), runningFlag(true), mutexLock(),
-                        condition(mutexLock) {
-        worker = new std::thread(std::bind(&RestorePipeline::writeFileCallback, this));
+                        condition(mutexLock), itemListCondition(itemListLock), itemAmount(0) {
+        readWorker = new std::thread(std::bind(&RestorePipeline::scheduleCallback, this));
     }
 
     int addTask(RestoreTask *restoreTask) {
@@ -36,11 +58,11 @@ public:
     ~RestorePipeline() {
         runningFlag = false;
         condition.notifyAll();
-        worker->join();
+        readWorker->join();
     }
 
 private:
-    void writeFileCallback() {
+    void scheduleCallback() {
         RestoreTask *restoreTask;
 
         uint64_t readRecipe = 0, buildMap = 0, calculateSource = 0, processEachSource = 0;
@@ -78,7 +100,7 @@ private:
             uint64_t pos = 0;
             for (uint64_t i = 0; i < count; i++) {
                 blockHeader = (BlockHeader * )(recipeBuffer + i * sizeof(BlockHeader));
-                restoreMap[blockHeader->fp].push_back({pos, blockHeader->length});
+                restoreMap[blockHeader->fp].push_back({pos});
                 pos += blockHeader->length;
             }
             gettimeofday(&tt1, NULL);
@@ -100,30 +122,33 @@ private:
             calculateSource = (tt0.tv_sec - tt1.tv_sec) * 1000000 + (tt0.tv_usec - tt1.tv_usec);
             printf("calculateSource:%lu\n", calculateSource);
 
-            FileOperator outputWriter((char *) restoreTask->outputPath.data(), FileOpenType::Write);
-            outputWriter.trunc(pos);
+            CountdownLatch finishCountdown(1);
+            writeWorker = new std::thread(std::bind(&RestorePipeline::writeFileCallback, this, pos, &finishCountdown,
+                                                    restoreTask->outputPath));
 
             for (auto index : versionList) {
                 gettimeofday(&tt0, NULL);
-                writeFromVersionFile(index, restoreTask->targetVersion, &outputWriter);
+                readFromVersionFile(index, restoreTask->targetVersion);
                 gettimeofday(&tt1, NULL);
                 processEachSource = (tt1.tv_sec - tt0.tv_sec) * 1000000 + (tt1.tv_usec - tt0.tv_usec);
                 printf("processVersion # %lu : %lu\n", index, processEachSource);
             }
             for (auto index : classList) {
                 gettimeofday(&tt0, NULL);
-                writeFromClassFile(index, &outputWriter);
+                readFromClassFile(index);
                 gettimeofday(&tt1, NULL);
                 processEachSource = (tt1.tv_sec - tt0.tv_sec) * 1000000 + (tt1.tv_usec - tt0.tv_usec);
                 printf("processClass # %lu : %lu\n", index, processEachSource);
             }
+            itemReceiveList.push_back(new RestoreWritingItem(true));
 
+            finishCountdown.wait();
             gettimeofday(&t1, NULL);
-            outputWriter.fsync();
 
             uint64_t restoreDuration = (t1.tv_sec - t0.tv_sec) * 1000000 + (t1.tv_usec - t0.tv_usec);
             float speed = (float) pos / restoreDuration;
             printf("restore done\n");
+            printf("Total duration:%lu\n", restoreDuration);
             printf("Throughput : %f MB/s\n", speed);
             printf("==========================================================\n");
 
@@ -132,31 +157,65 @@ private:
         }
     }
 
-    uint64_t calculateClassId(uint64_t first, uint64_t second) {
-        uint64_t startVersion = first < second ? first : second;
-        uint64_t endVersion = first > second ? first : second;
-        uint64_t result = (startVersion + 1) * startVersion / 2;
-        for (uint64_t i = startVersion + 1; i <= endVersion; i++) {
-            result += i - 1;
+    void writeFileCallback(uint64_t totalLength, CountdownLatch *countdownLatch, const std::string &path) {
+        FileOperator outputWriter((char *) path.data(), FileOpenType::Write);
+        outputWriter.trunc(totalLength);
+        int fd = outputWriter.getFd();
+        uint64_t writeDuration = 0, waitDuration = 0;
+
+        struct timeval t0, t1, wt0, wt1;
+
+        while (runningFlag) {
+            gettimeofday(&wt0, NULL);
+            {
+                MutexLockGuard mutexLockGuard(itemListLock);
+                while (!itemAmount) {
+                    itemListCondition.wait();
+                    if (unlikely(!runningFlag)) break;
+                }
+                if (unlikely(!runningFlag)) continue;
+                itemAmount = 0;
+                itemProcessList.swap(itemReceiveList);
+            }
+            gettimeofday(&wt1, NULL);
+            waitDuration += (wt1.tv_sec - wt0.tv_sec) * 1000000 + (wt1.tv_usec - wt0.tv_usec);
+
+            gettimeofday(&t0, NULL);
+            for (auto item : itemProcessList) {
+                if (unlikely(item->endflag)) {
+                    delete item;
+                    goto writeFileEnd;
+                }
+                auto iter = restoreMap.find(item->sha1Fp);
+                assert(iter->second.size() != 0);
+                for (auto i : iter->second) {
+                    uint64_t r = lseek64(fd, i.pos, SEEK_SET);
+                    assert(r == i.pos);
+                    write(fd, item->buffer, item->length);
+                }
+                delete item;
+            }
+            gettimeofday(&t1, NULL);
+            writeDuration += (t1.tv_sec - t0.tv_sec) * 1000000 + (t1.tv_usec - t0.tv_usec);
+            itemProcessList.clear();
+
         }
-        return result;
+        writeFileEnd:
+        outputWriter.fsync();
+        printf("write duration : %lu, wait duration : %lu, readdd : %lu\n", writeDuration, waitDuration, readdd);
+        countdownLatch->countDown();
     }
 
-    int writeFromVersionFile(uint64_t versionId, uint64_t restoreVersion, FileOperator *restoreWriter) {
+    int readFromVersionFile(uint64_t versionId, uint64_t restoreVersion) {
         sprintf(filePath, FLAGS_VersionFilePath.data(), versionId);
         FileOperator versionReader(filePath, FileOpenType::Read);
         int versionFileFD = versionReader.getFd();
-        int restoreWriteFD = restoreWriter->getFd();
 
         VersionFileHeader versionFileHeader;
 
-        //uint64_t r = fread(&versionFileHeader, sizeof(VersionFileHeader), 1, versionReader);
-        //.read((uint8_t * ) & versionFileHeader, sizeof(VersionFileHeader));
         read(versionFileFD, &versionFileHeader, sizeof(VersionFileHeader));
 
         uint64_t *offset = (uint64_t *) malloc(versionFileHeader.offsetCount * sizeof(uint64_t));
-        //r = fread(offset, versionFileHeader.offsetCount * sizeof(uint64_t), 1, versionReader);
-        //versionReader.read((uint8_t *) offset, versionFileHeader.offsetCount * sizeof(uint64_t));
         read(versionFileFD, offset, versionFileHeader.offsetCount * sizeof(uint64_t));
 
         uint64_t leftLength = 0;
@@ -174,8 +233,12 @@ private:
             uint64_t bytesToRead =
                     leftLength > FLAGS_RestoreReadBufferLength ? FLAGS_RestoreReadBufferLength : leftLength;
             memcpy(readBuffer, readBuffer + readOffset, readBufferLeft);
+
+            gettimeofday(&rt0, NULL);
             uint64_t bytesFinallyRead = read(versionFileFD, readBuffer + readBufferLeft, bytesToRead - readBufferLeft);
-            //uint64_t bytesFinallyRead = versionReader.read(readBuffer + readBufferLeft, FLAGS_RestoreReadBufferLength - readBufferLeft);  // wrapper really scarifies the performance.
+            gettimeofday(&rt1, NULL);
+            readdd += (rt1.tv_sec - rt0.tv_sec) * 1000000 + (rt1.tv_usec - rt0.tv_usec);
+
             readBufferLeft += bytesFinallyRead;
             readOffset = 0;
 
@@ -183,21 +246,20 @@ private:
 
 
                 if (leftLength == 0) break;
-                blockHeader = (BlockHeaderAlter *) (readBuffer + readOffset);
+                blockHeader = (BlockHeaderAlter * )(readBuffer + readOffset);
                 chunkPtr = readBuffer + readOffset + sizeof(BlockHeaderAlter);
                 if (readBufferLeft < sizeof(BlockHeaderAlter) ||
                     readBufferLeft < (sizeof(BlockHeaderAlter) + blockHeader->length)) {
                     break;
                 }
 
-                auto iter = restoreMap.find(blockHeader->fp);
-                assert(iter->second.size() != 0);
-                for (auto item : iter->second) {
-                    //int r = restoreWriter->seek(item.pos);    // wrapper really scarifies the performance.
-                    uint64_t r = lseek64(restoreWriteFD, item.pos, SEEK_SET);
-                    assert(r == item.pos);
-                    //restoreWriter->write(chunkPtr, item.length);  // wrapper really scarifies the performance.
-                    write(restoreWriteFD, chunkPtr, item.length);
+                RestoreWritingItem *restoreWritingItem = new RestoreWritingItem(chunkPtr, blockHeader->length,
+                                                                                blockHeader->fp);
+                {
+                    MutexLockGuard mutexLockGuard(itemListLock);
+                    itemReceiveList.push_back(restoreWritingItem);
+                    itemAmount++;
+                    itemListCondition.notifyAll();
                 }
 
                 readOffset += sizeof(BlockHeaderAlter) + blockHeader->length;
@@ -209,11 +271,10 @@ private:
         free(readBuffer);
     }
 
-    int writeFromClassFile(uint64_t classId, FileOperator *restoreWriter) {
+    int readFromClassFile(uint64_t classId) {
         sprintf(filePath, FLAGS_ClassFilePath.data(), classId);
         FileOperator classReader(filePath, FileOpenType::Read);
         int fd = classReader.getFd();
-        int restoreWriteFD = restoreWriter->getFd();
 
         uint64_t leftLength = FileOperator::size(filePath);
         uint8_t *readBuffer = (uint8_t *) malloc(FLAGS_RestoreReadBufferLength);
@@ -227,26 +288,31 @@ private:
             uint64_t bytesToRead =
                     leftLength > FLAGS_RestoreReadBufferLength ? FLAGS_RestoreReadBufferLength : leftLength;
             memcpy(readBuffer, readBuffer + readOffset, readBufferLeft);
+
+            gettimeofday(&rt0, NULL);
             uint64_t bytesFinallyRead = read(fd, readBuffer + readBufferLeft, bytesToRead - readBufferLeft);
-            //uint64_t bytesFinallyRead = classReader.read(readBuffer + readBufferLeft, bytesToRead - readBufferLeft); // wrapper really scarifies the performance.
+            gettimeofday(&rt1, NULL);
+            readdd += (rt1.tv_sec - rt0.tv_sec) * 1000000 + (rt1.tv_usec - rt0.tv_usec);
+
             readBufferLeft += bytesFinallyRead;
             readOffset = 0;
             while (1) {
-                blockHeader = (BlockHeaderAlter *) (readBuffer + readOffset);
+                blockHeader = (BlockHeaderAlter * )(readBuffer + readOffset);
                 chunkPtr = readBuffer + readOffset + sizeof(BlockHeaderAlter);
                 if (readBufferLeft < sizeof(BlockHeaderAlter) ||
                     readBufferLeft < (sizeof(BlockHeaderAlter) + blockHeader->length)) {
                     break;
                 }
 
-                auto iter = restoreMap.find(blockHeader->fp);
-                assert(iter->second.size() != 0);
-                for (auto item : iter->second) {
-                    //int r = restoreWriter->seek(item.pos);    // wrapper really scarifies the performance.
-                    uint64_t r = lseek64(restoreWriteFD, item.pos, SEEK_SET);
-                    assert(r == item.pos);
-                    //restoreWriter->write(chunkPtr, item.length);  // wrapper really scarifies the performance.
-                    write(restoreWriteFD, chunkPtr, item.length);
+//                auto iter = restoreMap.find(blockHeader->fp);
+//                assert(iter->second.size() != 0);
+                RestoreWritingItem *restoreWritingItem = new RestoreWritingItem(chunkPtr, blockHeader->length,
+                                                                                blockHeader->fp);
+                {
+                    MutexLockGuard mutexLockGuard(itemListLock);
+                    itemReceiveList.push_back(restoreWritingItem);
+                    itemAmount++;
+                    itemListCondition.notifyAll();
                 }
 
 
@@ -258,15 +324,26 @@ private:
         free(readBuffer);
     }
 
+
     char buffer[256];
     bool runningFlag;
-    std::thread *worker;
+    std::thread *readWorker;
+    std::thread *writeWorker;
     uint64_t taskAmount;
     std::list<RestoreTask *> taskList;
     MutexLock mutexLock;
     Condition condition;
 
-    std::unordered_map <SHA1FP, std::list<RestoreEntry>, TupleHasher, TupleEqualer> restoreMap;
+    std::list<RestoreWritingItem *> itemReceiveList;
+    std::list<RestoreWritingItem *> itemProcessList;
+    MutexLock itemListLock;
+    Condition itemListCondition;
+    uint64_t itemAmount;
+
+    struct timeval rt0, rt1;
+    uint64_t readdd = 0;
+
+    std::unordered_map<SHA1FP, std::list<RestoreEntry>, TupleHasher, TupleEqualer> restoreMap;
     char filePath[256];
 };
 

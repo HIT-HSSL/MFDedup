@@ -8,6 +8,7 @@
 #include "Lock.h"
 #include <list>
 #include <tuple>
+#include <cstring>
 
 struct SHA1FP {
     //std::tuple<uint32_t, uint32_t, uint32_t, uint32_t, uint32_t> fp;
@@ -66,11 +67,54 @@ struct StorageTask {
 };
 
 struct RestoreTask {
-    std::string path;
-    std::string outputPath;
     uint64_t maxVersion;
     uint64_t targetVersion;
-    CountdownLatch *countdownLatch = nullptr;
+};
+
+struct RestoreParseTask {
+    uint8_t *buffer = nullptr;
+    uint64_t length;
+    bool endFlag = false;
+    uint64_t index = 0;
+
+    RestoreParseTask(uint8_t *buf, uint64_t len) {
+        buffer = buf;
+        length = len;
+    }
+
+    RestoreParseTask(bool flag) {
+        endFlag = true;
+    }
+
+    ~RestoreParseTask() {
+        if (buffer) {
+            free(buffer);
+        }
+    }
+};
+
+struct RestoreWriteTask {
+    uint8_t *buffer = nullptr;
+    uint64_t pos;
+    uint64_t length;
+    bool endFlag = false;
+
+    RestoreWriteTask(uint8_t *buf, uint64_t p, uint64_t len) {
+        buffer = (uint8_t *) malloc(len);
+        memcpy(buffer, buf, len);
+        length = len;
+        pos = p;
+    }
+
+    RestoreWriteTask(bool flag) {
+        endFlag = true;
+    }
+
+    ~RestoreWriteTask() {
+        if (buffer) {
+            free(buffer);
+        }
+    }
 };
 
 struct GCTask {

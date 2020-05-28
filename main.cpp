@@ -4,16 +4,17 @@
 #include <iostream>
 
 #include "Pipeline/ReadFilePipeline.h"
-#include "Pipeline/RestorePipleline.h"
+//#include "RestorePipeline/RestorePipleline.h"
+#include "RestorePipeline/RestoreReadPipeline.h"
 #include "Pipeline/GCPipieline.h"
 #include "Pipeline/Eliminater.h"
 #include "gflags/gflags.h"
 #include <fstream>
 
 DEFINE_string(Path,
-"", "storage path");
+              "", "storage path");
 DEFINE_string(RestorePath,
-"", "restore path");
+              "", "restore path");
 DEFINE_uint64(RestoreRecipe,
 1, "restore recipe");
 DEFINE_string(task,
@@ -37,7 +38,6 @@ int main(int argc, char **argv) {
     GlobalWriteFilePipelinePtr = new WriteFilePipeline();
     GlobalGCPipelinePtr = new GCPipeline();
     GlobalMetadataManagerPtr = new MetadataManager();
-    GlobalRestorePipelinePtr = new RestorePipeline();
 
     if (FLAGS_task == writeStr) {
         struct timeval total0, total1;
@@ -93,18 +93,27 @@ int main(int argc, char **argv) {
         printf("done\n");
         printf("==============================================\n");
     } else if (FLAGS_task == restoreStr) {
+
         char buffer[256];
         sprintf(buffer, FLAGS_LogicFilePath.data(), FLAGS_RestoreRecipe);
         CountdownLatch countdownLatch(1);
+
         RestoreTask restoreTask = {
-                buffer,
-                FLAGS_RestorePath,
                 FLAGS_MaxVersion,
                 FLAGS_RestoreRecipe,
-                &countdownLatch
         };
-        GlobalRestorePipelinePtr->addTask(&restoreTask);
+
+        GlobalRestoreReadPipelinePtr = new RestoreReadPipeline();
+        GlobalRestoreParserPipelinePtr = new RestoreParserPipeline(FLAGS_RestoreRecipe, buffer);
+        GlobalRestoreWritePipelinePtr = new RestoreWritePipeline(&countdownLatch);
+
+        GlobalRestoreReadPipelinePtr->addTask(&restoreTask);
+
         countdownLatch.wait();
+
+        delete GlobalRestoreReadPipelinePtr;
+        delete GlobalRestoreParserPipelinePtr;
+        delete GlobalRestoreWritePipelinePtr;
     } else if (FLAGS_task == eliminateStr) {
         Eliminater eliminater;
         eliminater.run(FLAGS_MaxVersion);
@@ -123,7 +132,7 @@ int main(int argc, char **argv) {
         printf("MFDedup --task=status\n");
         printf("--------------------------------------------------\n");
         printf("use --ClassFilePath=[class file path] to specify the class files path, default value is /data/MFDedupHome/storageFiles/%%lu\n");
-        printf("use --VersionFilePath=[version file path] to specify the version files path, default value is /data/MFDedupHome/storageFiles/%%lu\n");
+        printf("use --VersionFilePath=[version file path] to specify the version files path, default value is /data/MFDedupHome/storageFiles/v%%lu\n");
         printf("use --LogicFilePath=[logic file path] to specify the logic files (recipes) path, default value is /data/MFDedupHome/logicFiles/%%lu\n");
         printf("more information with --help\n");
         printf("=================================================\n");
@@ -135,7 +144,6 @@ int main(int argc, char **argv) {
     delete GlobalHashingPipelinePtr;
     delete GlobalDeduplicationPipelinePtr;
     delete GlobalWriteFilePipelinePtr;
-    delete GlobalRestorePipelinePtr;
     delete GlobalGCPipelinePtr;
     delete GlobalMetadataManagerPtr;
 }
