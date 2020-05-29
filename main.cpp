@@ -3,10 +3,10 @@
 
 #include <iostream>
 
-#include "Pipeline/ReadFilePipeline.h"
+#include "DedupPipeline/ReadFilePipeline.h"
 #include "RestorePipeline/RestoreReadPipeline.h"
-#include "Pipeline/GCPipieline.h"
-#include "Pipeline/Eliminater.h"
+#include "DedupPipeline/GCPipieline.h"
+#include "DedupPipeline/Eliminater.h"
 #include "gflags/gflags.h"
 #include <fstream>
 

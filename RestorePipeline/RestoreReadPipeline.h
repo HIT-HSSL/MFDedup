@@ -1,6 +1,8 @@
 //
 // Created by Borelset on 2020/5/27.
 //
+//  Copyright (C) 2020-present, Xiangyu Zou. All rights reserved.
+//  This source code is licensed under the GPLv2
 
 #ifndef MFDEDUP_RESTOREREADPIPELINE_H
 #define MFDEDUP_RESTOREREADPIPELINE_H

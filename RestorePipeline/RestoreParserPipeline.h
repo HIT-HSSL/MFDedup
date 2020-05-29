@@ -1,13 +1,14 @@
 //
 // Created by Borelset on 2020/5/27.
 //
+//  Copyright (C) 2020-present, Xiangyu Zou. All rights reserved.
+//  This source code is licensed under the GPLv2
 
 #ifndef MFDEDUP_RESTOREPARSERPIPELINE_H
 #define MFDEDUP_RESTOREPARSERPIPELINE_H
 
 #include "RestoreWritePipeline.h"
 #include "../Utility/StorageTask.h"
-#include "../Pipeline/WriteFilePipeline.h"
 #include "../Utility/FileOperator.h"
 #include <thread>
 #include <assert.h>

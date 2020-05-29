@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 14)
 aux_source_directory(Utility Utility)
 aux_source_directory(RollHash RollHash)
 aux_source_directory(MetadataManager MetadataManager)
-aux_source_directory(Pipeline Pipeline)
+aux_source_directory(DedupPipeline DedupPipeline)
 aux_source_directory(RestorePipeline RestorePipeline)
 add_subdirectory(gflags-2.2.2)
 
