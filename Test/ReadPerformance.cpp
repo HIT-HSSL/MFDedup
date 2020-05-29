@@ -29,5 +29,6 @@ int main(int argc, char **argv){
     uint64_t duration = (t1.tv_sec-t0.tv_sec) * 1000000 + (t1.tv_usec - t0.tv_usec);
     printf("fread() speed : %f MB/s\n", (float)size / duration);
 
+    free(buffer);
     fclose(file);
 }
