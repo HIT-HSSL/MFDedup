@@ -10,9 +10,9 @@ aux_source_directory(DedupPipeline DedupPipeline)
 aux_source_directory(RestorePipeline RestorePipeline)
 add_subdirectory(gflags-2.2.2)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
 
 link_libraries(gflags::gflags isal_crypto pthread crypto jemalloc)
 
 add_executable(MFDedup main.cpp ${Utility} ${RollHash} ${MetadataManager} ${Pipeline} ${RestorePipeline})
-add_executable(readTest Test/readTest.cpp)
+add_executable(ReadPerformanceTester  Test/ReadPerformance.cpp)
