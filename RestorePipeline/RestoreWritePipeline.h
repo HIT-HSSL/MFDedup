@@ -7,8 +7,9 @@
 
 class RestoreWritePipeline {
 public:
-    RestoreWritePipeline(CountdownLatch *cd) : taskAmount(0), runningFlag(true), mutexLock(),
+    RestoreWritePipeline(std::string restorePath, CountdownLatch *cd) : taskAmount(0), runningFlag(true), mutexLock(),
                                                condition(mutexLock), countdownLatch(cd) {
+        fileOperator = new FileOperator((char*)restorePath.data(), FileOpenType::Write);
         worker = new std::thread(std::bind(&RestoreWritePipeline::restoreWriteCallback, this));
     }
 
@@ -25,11 +26,23 @@ public:
         worker->join();
     }
 
+    int setSize(uint64_t size){
+        totalSize = size;
+        if (fileOperator){
+            fileOperator->trunc(size);
+        }
+    }
+
+    uint64_t getTotalSize(){
+        return totalSize;
+    }
+
 private:
     void restoreWriteCallback() {
         RestoreWriteTask *restoreWriteTask;
+        int fd = fileOperator->getFd();
 
-        while (runningFlag) {
+        while (likely(runningFlag)) {
             {
                 MutexLockGuard mutexLockGuard(mutexLock);
                 while (!taskAmount) {
@@ -44,12 +57,14 @@ private:
 
             if (unlikely(restoreWriteTask->endFlag)) {
                 delete restoreWriteTask;
+                fileOperator->fsync();
                 countdownLatch->countDown();
                 break;
             }
 
-            delete restoreWriteTask;
+            pwrite(fd, restoreWriteTask->buffer, restoreWriteTask->length, restoreWriteTask->pos);
 
+            delete restoreWriteTask;
         }
     }
 
@@ -61,6 +76,9 @@ private:
     std::list<RestoreWriteTask *> taskList;
     MutexLock mutexLock;
     Condition condition;
+    FileOperator* fileOperator = nullptr;
+
+    uint64_t totalSize = 0;
 };
 
 static RestoreWritePipeline *GlobalRestoreWritePipelinePtr;

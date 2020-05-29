@@ -4,7 +4,6 @@
 #include <iostream>
 
 #include "Pipeline/ReadFilePipeline.h"
-//#include "RestorePipeline/RestorePipleline.h"
 #include "RestorePipeline/RestoreReadPipeline.h"
 #include "Pipeline/GCPipieline.h"
 #include "Pipeline/Eliminater.h"
@@ -31,18 +30,21 @@ int main(int argc, char **argv) {
     std::string writeStr("write");
     std::string eliminateStr("eliminate");
 
-    GlobalReadPipelinePtr = new ReadFilePipeline();
-    GlobalChunkingPipelinePtr = new ChunkingPipeline();
-    GlobalHashingPipelinePtr = new HashingPipeline();
-    GlobalDeduplicationPipelinePtr = new DeduplicationPipeline();
-    GlobalWriteFilePipelinePtr = new WriteFilePipeline();
-    GlobalGCPipelinePtr = new GCPipeline();
-    GlobalMetadataManagerPtr = new MetadataManager();
-
     if (FLAGS_task == writeStr) {
-        struct timeval total0, total1;
+
+        // pipelines init
+        //------------------------------------------------------
+        GlobalReadPipelinePtr = new ReadFilePipeline();
+        GlobalChunkingPipelinePtr = new ChunkingPipeline();
+        GlobalHashingPipelinePtr = new HashingPipeline();
+        GlobalDeduplicationPipelinePtr = new DeduplicationPipeline();
+        GlobalWriteFilePipelinePtr = new WriteFilePipeline();
+        GlobalGCPipelinePtr = new GCPipeline();
+        GlobalMetadataManagerPtr = new MetadataManager();
+        //------------------------------------------------------
+
+        uint64_t dedupDuration = 0, gcDuration = 0;
         uint64_t totalSize = 0;
-        gettimeofday(&total0, NULL);
         std::ifstream infile;
         infile.open(FLAGS_BatchFilePath);
         std::string subPath;
@@ -50,7 +52,7 @@ int main(int argc, char **argv) {
         std::cout << "Batch path: " << FLAGS_BatchFilePath << std::endl;
         while (std::getline(infile, subPath)) {
             printf("----------------------------------------------\n");
-            std::cout << "Task: " << subPath << std::endl;
+            printf("Dedup Task: %s\n", subPath.data());
             struct timeval t0, t1;
             gettimeofday(&t0, NULL);
 
@@ -63,9 +65,10 @@ int main(int argc, char **argv) {
             countdownLatch.wait();
 
             gettimeofday(&t1, NULL);
-            float totalDuration = (float) (t1.tv_sec - t0.tv_sec) + (float) (t1.tv_usec - t0.tv_usec) / 1000000;
-            printf("Task duration:%fs, Task Size:%lu, Speed:%fMB/s\n", totalDuration, storageTask.length,
-                   (float) storageTask.length / totalDuration / 1024 / 1024);
+            uint64_t singleDedup = (t1.tv_sec - t0.tv_sec) * 1000000 + t1.tv_usec - t0.tv_usec;
+            dedupDuration += singleDedup;
+            printf("Task duration:%lu us, Task Size:%lu, Speed:%fMB/s\n", singleDedup, storageTask.length,
+                   (float) storageTask.length / singleDedup);
             GlobalReadPipelinePtr->getStatistics();
             GlobalHashingPipelinePtr->getStatistics();
             GlobalChunkingPipelinePtr->getStatistics();
@@ -73,29 +76,45 @@ int main(int argc, char **argv) {
             GlobalWriteFilePipelinePtr->getStatistics();
             totalSize += storageTask.length;
             printf("----------------------------------------------\n");
-            printf("GC start\n");
+            printf("GC Task: Version %lu\n", counter-1);
             CountdownLatch gcLatch(1);
             GCTask gcTask = {
                     counter - 1, &gcLatch,
             };
+            gettimeofday(&t0, NULL);
             GlobalGCPipelinePtr->addTask(&gcTask);
             gcLatch.wait();
+            gettimeofday(&t1, NULL);
+            uint64_t singleGC = (t1.tv_sec - t0.tv_sec) * 1000000 + t1.tv_usec - t0.tv_usec;
+            gcDuration += singleGC;
             printf("----------------------------------------------\n");
             counter++;
         }
-        gettimeofday(&total1, NULL);
-        float duration = (float) (total1.tv_sec - total0.tv_sec) + (float) (total1.tv_usec - total0.tv_usec) / 1000000;
 
         printf("==============================================\n");
-        printf("Total duration:%fs, Total Size:%lu, Speed:%fMB/s\n", duration, totalSize,
-               (float) totalSize / duration / 1024 / 1024);
+        printf("Total deduplication duration:%fs, Total Size:%lu, Speed:%fMB/s\n", dedupDuration, totalSize,
+               (float) totalSize / dedupDuration);
         GlobalDeduplicationPipelinePtr->getStatistics();
         printf("done\n");
         printf("==============================================\n");
+
+        // pipelines release
+        //------------------------------------------------------
+        delete GlobalReadPipelinePtr;
+        delete GlobalChunkingPipelinePtr;
+        delete GlobalHashingPipelinePtr;
+        delete GlobalDeduplicationPipelinePtr;
+        delete GlobalWriteFilePipelinePtr;
+        delete GlobalGCPipelinePtr;
+        delete GlobalMetadataManagerPtr;
+        //------------------------------------------------------
+
     } else if (FLAGS_task == restoreStr) {
 
-        char buffer[256];
-        sprintf(buffer, FLAGS_LogicFilePath.data(), FLAGS_RestoreRecipe);
+        struct timeval t0, t1;
+
+        char recipePath[256];
+        sprintf(recipePath, FLAGS_LogicFilePath.data(), FLAGS_RestoreRecipe);
         CountdownLatch countdownLatch(1);
 
         RestoreTask restoreTask = {
@@ -104,16 +123,20 @@ int main(int argc, char **argv) {
         };
 
         GlobalRestoreReadPipelinePtr = new RestoreReadPipeline();
-        GlobalRestoreParserPipelinePtr = new RestoreParserPipeline(FLAGS_RestoreRecipe, buffer);
-        GlobalRestoreWritePipelinePtr = new RestoreWritePipeline(&countdownLatch);
+        GlobalRestoreWritePipelinePtr = new RestoreWritePipeline(FLAGS_RestorePath, &countdownLatch);  // order is important.
+        GlobalRestoreParserPipelinePtr = new RestoreParserPipeline(FLAGS_RestoreRecipe, recipePath);  // order is important.
 
+        gettimeofday(&t0, NULL);
         GlobalRestoreReadPipelinePtr->addTask(&restoreTask);
-
         countdownLatch.wait();
+        gettimeofday(&t1, NULL);
+        uint64_t duration = (t1.tv_sec-t0.tv_sec)*1000000 + (t1.tv_usec-t0.tv_usec);
+        printf("Total duration : %lu, speed : %f MB/s\n", duration, (float)GlobalRestoreWritePipelinePtr->getTotalSize() / duration);
 
         delete GlobalRestoreReadPipelinePtr;
         delete GlobalRestoreParserPipelinePtr;
         delete GlobalRestoreWritePipelinePtr;
+
     } else if (FLAGS_task == eliminateStr) {
         Eliminater eliminater;
         eliminater.run(FLAGS_MaxVersion);
@@ -139,11 +162,4 @@ int main(int argc, char **argv) {
 
     }
 
-    delete GlobalReadPipelinePtr;
-    delete GlobalChunkingPipelinePtr;
-    delete GlobalHashingPipelinePtr;
-    delete GlobalDeduplicationPipelinePtr;
-    delete GlobalWriteFilePipelinePtr;
-    delete GlobalGCPipelinePtr;
-    delete GlobalMetadataManagerPtr;
 }

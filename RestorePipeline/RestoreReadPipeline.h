@@ -32,7 +32,7 @@ private:
     void restoreReadCallback() {
         RestoreTask *restoreTask;
 
-        while (runningFlag) {
+        while (likely(runningFlag)) {
             {
                 MutexLockGuard mutexLockGuard(mutexLock);
                 while (!taskAmount) {
@@ -93,10 +93,9 @@ private:
             uint64_t bytesFinallyRead = read(versionFileFD, readBuffer, bytesToRead);
             leftLength -= bytesFinallyRead;
 
-            //RestoreParseTask* restoreParseTask = new RestoreParseTask(readBuffer, bytesFinallyRead);
-            //restoreParseTask->index = versionId;
-            //GlobalRestoreParserPipelinePtr->addTask(restoreParseTask);
-            free(readBuffer);
+            RestoreParseTask* restoreParseTask = new RestoreParseTask(readBuffer, bytesFinallyRead);
+            restoreParseTask->index = versionId;
+            GlobalRestoreParserPipelinePtr->addTask(restoreParseTask);
         }
     }
 

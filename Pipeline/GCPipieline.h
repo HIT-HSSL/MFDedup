@@ -139,7 +139,7 @@ private:
                 printf("Speed : %fMB/s\n", (double) (counter[1] + counter[3]) / duration);
                 gcTask->countdownLatch->countDown();
             } else {
-                printf("Do not need to GC, Skip\n");
+                printf("Version 0 does not exist and do not need to GC, skip\n");
                 gcTask->countdownLatch->countDown();
             }
         }

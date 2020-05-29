@@ -13,7 +13,7 @@
 #include <assert.h>
 
 DEFINE_uint64(RestoreReadBufferLength,
-              16777216, "WriteBufferLength");
+              67108864, "WriteBufferLength");
 
 class RestoreParserPipeline {
 public:
@@ -52,6 +52,7 @@ private:
             restoreMap[blockHeader->fp].push_back({pos});
             pos += blockHeader->length;
         }
+        GlobalRestoreWritePipelinePtr->setSize(pos);
 
         RestoreParseTask *restoreParseTask;
         uint64_t leftLength = 0;
@@ -60,7 +61,7 @@ private:
 
         uint8_t *temp = (uint8_t *) malloc(FLAGS_RestoreReadBufferLength);
 
-        while (runningFlag) {
+        while (likely(runningFlag)) {
             {
                 MutexLockGuard mutexLockGuard(mutexLock);
                 while (!taskAmount) {
