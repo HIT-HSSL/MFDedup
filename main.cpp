@@ -70,8 +70,8 @@ int main(int argc, char **argv) {
             printf("Task duration:%lu us, Task Size:%lu, Speed:%fMB/s\n", singleDedup, storageTask.length,
                    (float) storageTask.length / singleDedup);
             GlobalReadPipelinePtr->getStatistics();
-            GlobalHashingPipelinePtr->getStatistics();
             GlobalChunkingPipelinePtr->getStatistics();
+            GlobalHashingPipelinePtr->getStatistics();
             GlobalDeduplicationPipelinePtr->getStatistics();
             GlobalWriteFilePipelinePtr->getStatistics();
             totalSize += storageTask.length;

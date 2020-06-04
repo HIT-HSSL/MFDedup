@@ -19,8 +19,8 @@
 #include "../RollHash/rabin_chunking.h"
 
 DEFINE_string(ChunkingMethod,
-"Gear", "chunking method in chunking");
-DEFINE_int32(ExceptSize,
+"FastCDC", "chunking method in chunking");
+DEFINE_int32(ExpectSize,
 8192, "average chunk size");
 
 class ChunkingPipeline {
@@ -30,17 +30,17 @@ public:
               runningFlag(true),
               mutexLock(),
               condition(mutexLock) {
-        if (FLAGS_ChunkingMethod == std::string("Gear")) {
+        if (FLAGS_ChunkingMethod == std::string("FastCDC")) {
             rollHash = new Gear();
             matrix = rollHash->getMatrix();
-            worker = new std::thread(std::bind(&ChunkingPipeline::chunkingWorkerCallbackGear, this));
+            worker = new std::thread(std::bind(&ChunkingPipeline::chunkingWorkerCallbackFastCDC, this));
         } else if (FLAGS_ChunkingMethod == std::string("Rabin")) {
             worker = new std::thread(std::bind(&ChunkingPipeline::chunkingWorkerCallbackRabin, this));
         } else if (FLAGS_ChunkingMethod == std::string("Fixed")) {
             worker = new std::thread(std::bind(&ChunkingPipeline::chunkingWorkerCallbackFixed, this));
         }
-        MaxChunkSize = FLAGS_ExceptSize * 8;
-        MinChunkSize = FLAGS_ExceptSize / 4;
+        MaxChunkSize = FLAGS_ExpectSize * 8;
+        MinChunkSize = FLAGS_ExpectSize / 4;
 
         printf("ChunkingPipeline inited, Max chunk size=%d, Min chunk size=%d\n", MaxChunkSize, MinChunkSize);
     }
@@ -65,19 +65,19 @@ public:
 
 private:
 
-    void chunkingWorkerCallbackGear() {
+    void chunkingWorkerCallbackFastCDC() {
         mh_sha1_ctx ctx;
         //SHA_CTX ctx;
         uint64_t posPtr = 0;
         uint64_t base = 0;
 
-        if (FLAGS_ExceptSize == 8192) {
+        if (FLAGS_ExpectSize == 8192) {
             chunkMask = 0x0000d90f03530000;//32
             chunkMask2 = 0x0000d90003530000;//2
-        } else if (FLAGS_ExceptSize == 4096) {
+        } else if (FLAGS_ExpectSize == 4096) {
             chunkMask = 0x0000d90703530000;//16
             chunkMask2 = 0x0000590003530000;//1
-        } else if (FLAGS_ExceptSize == 16384) {
+        } else if (FLAGS_ExpectSize == 16384) {
             chunkMask = 0x0000d90f13530000;//64
             chunkMask2 = 0x0000d90103530000;//4
         }
@@ -92,6 +92,7 @@ private:
         bool flag = false;
 
         struct timeval t1, t0;
+        struct timeval ct0, ct1;
 
         while (runningFlag) {
             {
@@ -106,14 +107,13 @@ private:
                 taskList.pop_front();
             }
 
-            gettimeofday(&t0, NULL);
-
-            if (newFileFlag) {
+            if (unlikely(newFileFlag)) {
                 posPtr = 0;
                 base = 0;
                 data = chunkTask.buffer;
                 newFileFlag = false;
                 flag = false;
+                duration = 0;
             }
             uint64_t end = chunkTask.end;
 
@@ -121,13 +121,16 @@ private:
             dedupTask.length = chunkTask.length;
             dedupTask.fileID = chunkTask.fileID;
 
-            if (!chunkTask.countdownLatch) {
+            gettimeofday(&t0, NULL);
+            if (likely(!chunkTask.countdownLatch)) {
                 while (end - posPtr > MaxChunkSize) {
                     int chunkSize = fastcdc_chunk_data(data + posPtr, end - posPtr);
                     dedupTask.pos = base;
                     dedupTask.length = chunkSize;
                     dedupTask.index++;
+
                     GlobalHashingPipelinePtr->addTask(dedupTask);
+
                     base += chunkSize;
                     posPtr += chunkSize;
                 }
@@ -141,21 +144,20 @@ private:
                         dedupTask.countdownLatch = chunkTask.countdownLatch;
                         flag = true;
                     }
+
                     GlobalHashingPipelinePtr->addTask(dedupTask);
+
                     base += chunkSize;
                     posPtr += chunkSize;
                 }
             }
-            if (flag) {
+            if (unlikely(flag)) {
                 chunkTask.countdownLatch->countDown();
                 printf("ChunkingPipeline finish\n");
                 newFileFlag = true;
                 dedupTask.countdownLatch = nullptr;
             }
-
-
             gettimeofday(&t1, NULL);
-            duration += (t1.tv_sec - t0.tv_sec) * 1000000 + t1.tv_usec - t0.tv_usec;
             duration += (t1.tv_sec - t0.tv_sec) * 1000000 + t1.tv_usec - t0.tv_usec;
         }
     }
@@ -168,7 +170,7 @@ private:
         uint64_t fp = 0;
         const uint64_t chunkMask = 0x0000d90f03530000;
         const uint64_t chunkMask2 = 0x0000d90003530000;
-        uint64_t rabinMask = FLAGS_ExceptSize - 1;
+        uint64_t rabinMask = FLAGS_ExpectSize - 1;
         uint64_t counter = 0;
         uint8_t *data = nullptr;
         DedupTask dedupTask;
@@ -275,7 +277,7 @@ private:
     int fastcdc_chunk_data(unsigned char *p, uint64_t n) {
 
         uint64_t fingerprint = 0, digest;
-        int i = MinChunkSize, Mid = MinChunkSize + 8 * 1024;
+        int i = MinChunkSize, Mid = MinChunkSize + FLAGS_ExpectSize;
         //return n;
 
         if (n <= MinChunkSize) //the minimal  subChunk Size.
@@ -379,14 +381,14 @@ private:
     }
 
     int fix_chunk_data(unsigned char *p, uint64_t n) {
-        return FLAGS_ExceptSize;
+        return FLAGS_ExpectSize;
     }
 
     int fix_chunk_data_end(unsigned char *p, uint64_t n) {
-        if (n < FLAGS_ExceptSize) {
+        if (n < FLAGS_ExpectSize) {
             return n;
         } else {
-            return FLAGS_ExceptSize;
+            return FLAGS_ExpectSize;
         }
     }
 

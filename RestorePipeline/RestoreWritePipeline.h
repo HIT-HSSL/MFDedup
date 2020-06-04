@@ -59,7 +59,7 @@ private:
 
             if (unlikely(restoreWriteTask->endFlag)) {
                 delete restoreWriteTask;
-                fileOperator->fsync();
+                fileOperator->fdatasync();
                 countdownLatch->countDown();
                 break;
             }

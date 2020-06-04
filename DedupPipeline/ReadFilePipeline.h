@@ -57,6 +57,8 @@ private:
                 taskList.pop_front();
             }
 
+            duration = 0;
+
             CountdownLatch *cd = storageTask->countdownLatch;
             FileOperator fileOperator((char *) storageTask->path.c_str(), FileOpenType::Read);
             storageTask->length = FileOperator::size((char *) storageTask->path.c_str());

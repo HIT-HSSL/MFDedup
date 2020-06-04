@@ -76,6 +76,7 @@ private:
                     chunkCounter[i] = 0;
                 }
                 newVersionFlag = false;
+                duration = 0;
             }
 
             for (const auto &dedupTask : taskList) {

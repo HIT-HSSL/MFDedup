@@ -76,8 +76,8 @@ public:
         return statBuffer.st_size;
     }
 
-    int fsync() {
-        return fdatasync(file->_fileno);
+    int fdatasync() {
+        return ::fdatasync(file->_fileno);
     }
 
     int getFd() {

@@ -14,7 +14,7 @@
 #include "GCPipieline.h"
 
 DEFINE_string(LogicFilePath,
-"/data/MFDedupHome/logicFiles/%lu", "recipe path");
+"/home/zxy/MFDedupHome/logicFiles/%lu", "recipe path");
 
 struct BlockHeader {
     SHA1FP fp;
@@ -43,7 +43,7 @@ public:
     }
 
     void getStatistics() {
-        printf("write duration:%lu\n", duration);
+        printf("Write duration:%lu\n", duration);
     }
 
 private:
@@ -72,6 +72,7 @@ private:
             if (chunkWriterManager == nullptr) {
                 currentVersion++;
                 chunkWriterManager = new ChunkWriterManager(currentVersion);
+                duration = 0;
             }
 
             for (auto &writeTask : taskList) {
@@ -105,7 +106,7 @@ private:
 
                 if (writeTask.countdownLatch) {
                     printf("WritePipeline finish\n");
-                    logicFileOperator->fsync();
+                    logicFileOperator->fdatasync();
                     delete logicFileOperator;
                     logicFileOperator = nullptr;
                     writeTask.countdownLatch->countDown();

@@ -56,6 +56,11 @@ private:
                 taskList.swap(receiceList);
             }
 
+            if(unlikely(newVersion)){
+                duration = 0;
+                newVersion = false;
+            }
+
             gettimeofday(&t0, NULL);
             for (auto &dedupTask : taskList) {
                 //openssl sha1
@@ -64,6 +69,7 @@ private:
                 //SHA1_Final((unsigned char *) &dedupTask.fp, &ctx);
 
                 //isa sha1
+
                 mh_sha1_init(&ctx);
                 mh_sha1_update_avx2(&ctx, dedupTask.buffer + dedupTask.pos, (uint32_t) dedupTask.length);
                 mh_sha1_finalize_avx2(&ctx, &dedupTask.fp);
@@ -71,12 +77,14 @@ private:
                 if (dedupTask.countdownLatch) {
                     printf("HashingPipeline finish\n");
                     dedupTask.countdownLatch->countDown();
+                    newVersion = true;
                 }
                 GlobalDeduplicationPipelinePtr->addTask(dedupTask);
             }
             taskList.clear();
             gettimeofday(&t1, NULL);
             duration += (t1.tv_sec - t0.tv_sec) * 1000000 + t1.tv_usec - t0.tv_usec;
+
         }
     }
 
@@ -88,6 +96,8 @@ private:
     MutexLock mutexLock;
     Condition condition;
     uint64_t duration = 0;
+
+    bool newVersion = true;
 };
 
 static HashingPipeline *GlobalHashingPipelinePtr;

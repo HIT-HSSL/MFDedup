@@ -8,9 +8,9 @@
 #define MFDEDUP_CHUNKWRITERMANAGER_H
 
 DEFINE_string(ClassFilePath,
-"/data/MFDedupHome/storageFiles/%lu", "class path");
+"/home/zxy/MFDedupHome/storageFiles/%lu", "class path");
 DEFINE_string(VersionFilePath,
-"/data/MFDedupHome/storageFiles/v%lu", "version path");
+"/home/zxy/MFDedupHome/storageFiles/v%lu", "version path");
 DEFINE_uint64(WriteBufferLength,
 4194304, "WriteBufferLength");
 
@@ -40,15 +40,6 @@ public:
         }
     }
 
-    FileOperator *getFD(uint64_t classId) {
-        auto iter = fdMap.find(classId);
-        if (iter == fdMap.end()) {
-            return nullptr;
-        } else {
-            return iter->second;
-        }
-    }
-
     int writeClass(uint64_t classId, uint8_t *header, uint64_t headerLen, uint8_t *buffer, uint64_t bufferLen) {
         assert(classId >= startClass);
         assert(classId <= endClass);
@@ -71,7 +62,7 @@ public:
     ~ChunkWriterManager() {
         for (auto entry : fdMap) {
             classFlush(entry.first);
-            entry.second->fsync();
+            entry.second->fdatasync();
             delete entry.second;
         }
         for (auto entry : writeBufferMap) {

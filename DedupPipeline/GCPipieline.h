@@ -128,7 +128,7 @@ private:
                 versionFile->write((uint8_t *) offset, sizeof(uint64_t) * gcVersion);
 
                 GlobalMetadataManagerPtr->metatableReleaseLatch(gcVersion + 1);
-                versionFile->fsync();
+                versionFile->fdatasync();
 
                 delete versionFile;
 
