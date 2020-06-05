@@ -76,16 +76,43 @@ private:
         FileOperator versionReader(filePath, FileOpenType::Read);
         int versionFileFD = versionReader.getFd();
 
-        VersionFileHeader versionFileHeader;
+        VersionFileHeader* versionFileHeader;
 
-        read(versionFileFD, &versionFileHeader, sizeof(VersionFileHeader));
-
-        uint64_t *offset = (uint64_t *) malloc(versionFileHeader.offsetCount * sizeof(uint64_t));
-        read(versionFileFD, offset, versionFileHeader.offsetCount * sizeof(uint64_t));
+//        read(versionFileFD, &versionFileHeader, sizeof(VersionFileHeader));
+//
+//        uint64_t *offset = (uint64_t *) malloc(versionFileHeader.offsetCount * sizeof(uint64_t));
+//        read(versionFileFD, offset, versionFileHeader.offsetCount * sizeof(uint64_t));
+//
+//        uint64_t leftLength = 0;
+//        for (int i = 0; i < restoreVersion; i++) {
+//            leftLength += offset[i];
+//        }
 
         uint64_t leftLength = 0;
-        for (int i = 0; i < restoreVersion; i++) {
-            leftLength += offset[i];
+        {
+            uint8_t *readBuffer = (uint8_t *) malloc(FLAGS_RestoreReadBufferLength);
+            uint64_t bytesToRead = FLAGS_RestoreReadBufferLength;
+            uint64_t bytesFinallyRead = read(versionFileFD, readBuffer, bytesToRead);
+            versionFileHeader = (VersionFileHeader*)readBuffer;
+            uint64_t* offset = (uint64_t*)(readBuffer + sizeof(VersionFileHeader));
+            for(int i=0; i<restoreVersion; i++){
+                leftLength += offset[i];
+            }
+            uint64_t totalHeaderLength = sizeof(VersionFileHeader) + versionFileHeader->offsetCount * sizeof(uint64_t);
+
+            if(leftLength < bytesFinallyRead - totalHeaderLength){
+                RestoreParseTask* restoreParseTask = new RestoreParseTask(readBuffer, leftLength);
+                restoreParseTask->index = versionId;
+                restoreParseTask->beginPos = totalHeaderLength;
+                GlobalRestoreParserPipelinePtr->addTask(restoreParseTask);
+                leftLength = 0;
+            }else{
+                RestoreParseTask* restoreParseTask = new RestoreParseTask(readBuffer, bytesFinallyRead - totalHeaderLength);
+                restoreParseTask->index = versionId;
+                restoreParseTask->beginPos = totalHeaderLength;
+                GlobalRestoreParserPipelinePtr->addTask(restoreParseTask);
+                leftLength -= bytesFinallyRead - totalHeaderLength;
+            }
         }
 
         while (leftLength > 0) {

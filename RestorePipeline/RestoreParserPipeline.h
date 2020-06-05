@@ -14,7 +14,7 @@
 #include <assert.h>
 
 DEFINE_uint64(RestoreReadBufferLength,
-              67108864, "WriteBufferLength");
+              8388608, "WriteBufferLength");
 
 class RestoreParserPipeline {
 public:
@@ -85,13 +85,13 @@ private:
             uint64_t taskRemain = 0;
             if (leftLength + restoreParseTask->length > FLAGS_RestoreReadBufferLength) {
                 copyLength = FLAGS_RestoreReadBufferLength - leftLength;
-                taskRemain = leftLength;
+                taskRemain = restoreParseTask->length - copyLength;
             } else {
                 copyLength = restoreParseTask->length;
                 taskRemain = 0;
             }
             uint64_t parseLeft = copyLength + leftLength;
-            memcpy(temp + leftLength, restoreParseTask->buffer, copyLength);
+            memcpy(temp + leftLength, restoreParseTask->buffer + restoreParseTask->beginPos, copyLength);
 
             uint64_t readoffset = 0;
 
@@ -99,7 +99,7 @@ private:
                 blockHeader = (BlockHeader *) (temp + readoffset);
                 if (parseLeft < sizeof(BlockHeader) || parseLeft < sizeof(BlockHeader) + blockHeader->length) {
                     memcpy(temp, temp + readoffset, parseLeft);
-                    memcpy(temp + parseLeft, restoreParseTask->buffer + copyLength, taskRemain);
+                    memcpy(temp + parseLeft, restoreParseTask->buffer + copyLength + restoreParseTask->beginPos, taskRemain);
                     readoffset = 0;
                     parseLeft += taskRemain;
 
@@ -128,8 +128,6 @@ private:
         }
     }
 
-
-    char filePath[256];
     bool runningFlag;
     std::thread *worker;
     uint64_t taskAmount;

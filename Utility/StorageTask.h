@@ -76,10 +76,12 @@ struct RestoreParseTask {
     uint64_t length;
     bool endFlag = false;
     uint64_t index = 0;
+    uint64_t beginPos = 0;
 
     RestoreParseTask(uint8_t *buf, uint64_t len) {
         buffer = buf;
         length = len;
+        beginPos = 0;
     }
 
     RestoreParseTask(bool flag) {
