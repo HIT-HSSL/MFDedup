@@ -224,7 +224,7 @@ int main(int argc, char **argv) {
             struct timeval t0, t1;
             gettimeofday(&t0, NULL);
 
-            system("echo 3 > /proc/sys/vm/drop_caches");
+//            system("echo 3 > /proc/sys/vm/drop_caches");
 
             StorageTask storageTask;
             CountdownLatch countdownLatch(5); // there are 5 pipelines in the workflow of write.
@@ -261,15 +261,15 @@ int main(int argc, char **argv) {
             printf("Arrangement duration:%lu us\n", singleGC);
             printf("----------------------------------------------\n");
 
-            system("echo 3 > /proc/sys/vm/drop_caches");
-            if(TotalVersion > RetentionTime){
-                do_restore(1);// the first version
-
-                std::string runMD5;
-                runMD5 += "md5sum ";
-                runMD5 += FLAGS_RestorePath;
-                system(runMD5.data());
-            }
+//            system("echo 3 > /proc/sys/vm/drop_caches");
+//            if(TotalVersion > RetentionTime){
+//                do_restore(1);// the first version
+//
+//                std::string runMD5;
+//                runMD5 += "md5sum ";
+//                runMD5 += FLAGS_RestorePath;
+//                system(runMD5.data());
+//            }
 
             if(TotalVersion > RetentionTime){
                 do_delete();
@@ -291,14 +291,14 @@ int main(int argc, char **argv) {
 
         }
 
-        for(int i=1; i<=RetentionTime; i++){
-            do_restore(i);// the first version
-
-            std::string runMD5;
-            runMD5 += "md5sum ";
-            runMD5 += FLAGS_RestorePath;
-            system(runMD5.data());
-        }
+//        for(int i=1; i<=RetentionTime; i++){
+//            do_restore(i);// the first version
+//
+//            std::string runMD5;
+//            runMD5 += "md5sum ";
+//            runMD5 += FLAGS_RestorePath;
+//            system(runMD5.data());
+//        }
 
         {
             manifest.TotalVersion = TotalVersion;
