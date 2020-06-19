@@ -72,7 +72,7 @@ private:
     }
 
     int readFromVersionFile(uint64_t versionId, uint64_t restoreVersion) {
-        sprintf(filePath, FLAGS_VersionFilePath.data(), versionId);
+        sprintf(filePath, VersionFilePath.data(), versionId);
         FileOperator versionReader(filePath, FileOpenType::Read);
         int versionFileFD = versionReader.getFd();
 
@@ -130,7 +130,7 @@ private:
 
 
     int readFromClassFile(uint64_t classId) {
-        sprintf(filePath, FLAGS_ClassFilePath.data(), classId);
+        sprintf(filePath, ClassFilePath.data(), classId);
         FileOperator classReader(filePath, FileOpenType::Read);
         int fd = classReader.getFd();
 

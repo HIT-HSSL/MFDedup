@@ -4,20 +4,23 @@
 //  Copyright (C) 2020-present, Xiangyu Zou. All rights reserved.
 //  This source code is licensed under the GPLv2
 
-#ifndef MFDEDUP_ELIMINATER_H
-#define MFDEDUP_ELIMINATER_H
+#ifndef MFDEDUP_ELIMINATOR_H
+#define MFDEDUP_ELIMINATOR_H
 
 DEFINE_uint64(EliminateReadBuffer,
 67108864, "Read buffer size for eliminating old version");
 
-class Eliminater {
+extern std::string LogicFilePath;
+extern std::string ClassFilePath;
+extern std::string VersionFilePath;
+
+class Eliminator {
 public:
-    Eliminater() {
+    Eliminator() {
 
     }
 
     int run(uint64_t maxVersion) {
-        printf("=======================================================\n");
         printf("start to eliminate\n");
         uint64_t startClass = (maxVersion - 1) * maxVersion / 2 + 1;
         uint64_t endClass = (maxVersion + 1) * maxVersion / 2;
@@ -38,21 +41,20 @@ public:
             recipeFilesProcessor(i);
         }
         printf("finish,  the earliest version has been eliminated\n");
-        printf("=======================================================\n");
     }
 
 private:
     int recipeFilesProcessor(uint64_t recipeId) {
-        sprintf(oldPath, FLAGS_LogicFilePath.data(), recipeId);
-        sprintf(newPath, FLAGS_LogicFilePath.data(), recipeId - 1);
+        sprintf(oldPath, LogicFilePath.data(), recipeId);
+        sprintf(newPath, LogicFilePath.data(), recipeId - 1);
         rename(oldPath, newPath);
 
         return 0;
     }
 
     int versionFileProcessor(uint64_t versionId) {
-        sprintf(oldPath, FLAGS_VersionFilePath.data(), versionId);
-        sprintf(newPath, FLAGS_VersionFilePath.data(), versionId - 1);
+        sprintf(oldPath, VersionFilePath.data(), versionId);
+        sprintf(newPath, VersionFilePath.data(), versionId - 1);
         FileOperator fileOperator(oldPath, FileOpenType::ReadWrite);
 
         VersionFileHeader versionFileHeader;
@@ -73,15 +75,15 @@ private:
     }
 
     int classFileProcessor(uint64_t classId, uint64_t maxVersion) {
-        sprintf(oldPath, FLAGS_ClassFilePath.data(), classId);
-        sprintf(newPath, FLAGS_ClassFilePath.data(), classId - (maxVersion - 1) - 1);
+        sprintf(oldPath, ClassFilePath.data(), classId);
+        sprintf(newPath, ClassFilePath.data(), classId - maxVersion);
         rename(oldPath, newPath);
         return 0;
     }
 
     int classFileCombinationProcessor(uint64_t classId1, uint64_t classId2, uint64_t maxVersion) {
-        sprintf(oldPath, FLAGS_ClassFilePath.data(), classId1);
-        sprintf(newPath, FLAGS_ClassFilePath.data(), classId2);
+        sprintf(oldPath, ClassFilePath.data(), classId1);
+        sprintf(newPath, ClassFilePath.data(), classId2);
 
         uint8_t *buffer = (uint8_t *) malloc(FLAGS_EliminateReadBuffer);
 
@@ -91,16 +93,16 @@ private:
             uint64_t left = FileOperator::size(newPath);
 
             while (left > 0) {
-                uint64_t readsize = class2.read(buffer, FLAGS_EliminateReadBuffer);
-                class1.write(buffer, readsize);
-                left -= readsize;
+                uint64_t readSize = class2.read(buffer, FLAGS_EliminateReadBuffer);
+                class1.write(buffer, readSize);
+                left -= readSize;
             }
         }
         free(buffer);
-        remove(newPath); // delete class file with classid2
+        remove(newPath); // delete class file with classid
 
-        sprintf(oldPath, FLAGS_ClassFilePath.data(), classId1);
-        sprintf(newPath, FLAGS_ClassFilePath.data(), classId1 - (maxVersion - 1));
+        sprintf(oldPath, ClassFilePath.data(), classId1);
+        sprintf(newPath, ClassFilePath.data(), classId1 - (maxVersion - 1));
 
         rename(oldPath, newPath);
         return 0;
@@ -110,4 +112,4 @@ private:
     char newPath[256];
 };
 
-#endif //MFDEDUP_ELIMINATER_H
+#endif //MFDEDUP_ELIMINATOR_H

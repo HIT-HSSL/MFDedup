@@ -15,6 +15,11 @@ DEFINE_uint64(GCReadBufferLength,
 DEFINE_uint64(GCWriteBufferLength,
 67108864, "WriteBufferLength");
 
+extern std::string LogicFilePath;
+extern std::string ClassFilePath;
+extern std::string VersionFilePath;
+
+
 struct BlockHeaderAlter {
     SHA1FP fp;
     uint64_t length;
@@ -108,7 +113,7 @@ private:
                 gettimeofday(&t0, NULL);
 
                 char versionPath[512];
-                sprintf(versionPath, FLAGS_VersionFilePath.data(), gcVersion);
+                sprintf(versionPath, VersionFilePath.data(), gcVersion);
                 VersionFileHeader versionFileHeader = {
                         .offsetCount = gcVersion
                 };
@@ -127,7 +132,6 @@ private:
                 versionFile->seek(sizeof(VersionFileHeader));
                 versionFile->write((uint8_t *) offset, sizeof(uint64_t) * gcVersion);
 
-                GlobalMetadataManagerPtr->metatableReleaseLatch(gcVersion + 1);
                 versionFile->fdatasync();
 
                 delete versionFile;
@@ -147,7 +151,7 @@ private:
 
     uint64_t gcProcessor(uint64_t classId, uint64_t gcVersion) {
         char pathbuffer_old[512];
-        sprintf(pathbuffer_old, FLAGS_ClassFilePath.data(), classId);
+        sprintf(pathbuffer_old, ClassFilePath.data(), classId);
         uint64_t migrateChunks = 0;
         uint64_t writeBytes = 0;
         uint64_t dropBytes = 0;

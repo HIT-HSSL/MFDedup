@@ -13,8 +13,9 @@
 #include "../Utility/ChunkWriterManager.h"
 #include "GCPipieline.h"
 
-DEFINE_string(LogicFilePath,
-"/home/zxy/MFDedupHome/logicFiles/%lu", "recipe path");
+//DEFINE_string(LogicFilePath, "/home/zxy/MFDedupHome/logicFiles/%lu", "recipe path");
+
+extern std::string LogicFilePath;
 
 struct BlockHeader {
     SHA1FP fp;
@@ -70,15 +71,14 @@ private:
             gettimeofday(&t0, NULL);
 
             if (chunkWriterManager == nullptr) {
-                currentVersion++;
-                chunkWriterManager = new ChunkWriterManager(currentVersion);
+                chunkWriterManager = new ChunkWriterManager(TotalVersion);
                 duration = 0;
             }
 
             for (auto &writeTask : taskList) {
 
                 if (!logicFileOperator) {
-                    sprintf(buffer, FLAGS_LogicFilePath.c_str(), writeTask.fileID);
+                    sprintf(buffer, LogicFilePath.c_str(), writeTask.fileID);
                     logicFileOperator = new FileOperator(buffer, FileOpenType::Write);
                 }
                 blockHeader = {
@@ -87,7 +87,7 @@ private:
                 };
                 switch (writeTask.type) {
                     case 0:
-                        chunkWriterManager->writeClass((currentVersion + 1) * currentVersion / 2,
+                        chunkWriterManager->writeClass((TotalVersion + 1) * TotalVersion / 2,
                                                        (uint8_t * ) & blockHeader, sizeof(BlockHeader),
                                                        writeTask.buffer + writeTask.pos, writeTask.bufferLength);
                         logicFileOperator->write((uint8_t * ) & blockHeader, sizeof(BlockHeader));
@@ -96,7 +96,7 @@ private:
                         logicFileOperator->write((uint8_t * ) & blockHeader, sizeof(BlockHeader));
                         break;
                     case 2:
-                        chunkWriterManager->writeClass(writeTask.oldClass + currentVersion - 1,
+                        chunkWriterManager->writeClass(writeTask.oldClass + TotalVersion - 1,
                                                        (uint8_t * ) & blockHeader, sizeof(BlockHeader),
                                                        writeTask.buffer + writeTask.pos, writeTask.bufferLength);
                         logicFileOperator->write((uint8_t * ) & blockHeader, sizeof(BlockHeader));
@@ -135,7 +135,6 @@ private:
     Condition condition;
     uint64_t duration = 0;
 
-    uint64_t currentVersion = 0;
 };
 
 static WriteFilePipeline *GlobalWriteFilePipelinePtr;

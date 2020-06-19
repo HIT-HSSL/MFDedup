@@ -7,12 +7,13 @@
 #ifndef MFDEDUP_CHUNKWRITERMANAGER_H
 #define MFDEDUP_CHUNKWRITERMANAGER_H
 
-DEFINE_string(ClassFilePath,
-"/home/zxy/MFDedupHome/storageFiles/%lu", "class path");
-DEFINE_string(VersionFilePath,
-"/home/zxy/MFDedupHome/storageFiles/v%lu", "version path");
+//DEFINE_string(ClassFilePath, "/home/zxy/MFDedupHome/storageFiles/%lu", "class path");
+//DEFINE_string(VersionFilePath, "/home/zxy/MFDedupHome/storageFiles/v%lu", "version path");
 DEFINE_uint64(WriteBufferLength,
 4194304, "WriteBufferLength");
+
+extern std::string ClassFilePath;
+extern std::string VersionFilePath;
 
 struct WriteBuffer {
     char *buffer;
@@ -28,7 +29,7 @@ public:
         endClass = (currentVersion + 1) * currentVersion / 2;
 
         for (uint64_t i = startClass; i <= endClass; i++) {
-            sprintf(pathBuffer, FLAGS_ClassFilePath.data(), i);
+            sprintf(pathBuffer, ClassFilePath.data(), i);
             FileOperator *fd = new FileOperator(pathBuffer, FileOpenType::Write);
             fdMap[i] = fd;
             WriteBuffer writeBuffer = {

@@ -39,12 +39,11 @@ public:
                 break;
         }
         if (!file) {
-            printf("Open: %s\n", path);
-            printf("error: %s\n", strerror(errno));
-            printf("OpenFile:%lu\n", fileCounter);
-            exit(0);
+            printf("Can not open file %s : %s\n", path, strerror(errno));
+            status = -1;
+        }else{
+            fileCounter++;
         }
-        fileCounter++;
     }
 
     ~FileOperator() {
@@ -52,6 +51,10 @@ public:
             fclose(file);
             fileCounter--;
         }
+    }
+
+    int getStatus(){
+        return status;
     }
 
     uint64_t read(uint8_t *buffer, uint64_t length) {
@@ -86,6 +89,7 @@ public:
 
 private:
     FILE *file;
+    int status = 0;
 };
 
 

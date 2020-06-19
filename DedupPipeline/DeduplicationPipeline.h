@@ -54,7 +54,6 @@ private:
         struct timeval t0, t1;
         std::list <WriteTask> saveList;
         uint8_t *currentTask;
-        MetaEntry metaEntry;
         bool newVersionFlag = true;
 
         while (likely(runningFlag)) {
@@ -67,7 +66,6 @@ private:
                 if (unlikely(!runningFlag)) continue;
                 //printf("get task\n");
                 taskAmount = 0;
-                condition.notify();
                 taskList.swap(receiceList);
             }
 
@@ -87,7 +85,7 @@ private:
                 writeTask.index = dedupTask.index;
 
                 uint64_t oldClass;
-                LookupResult lookupResult = GlobalMetadataManagerPtr->dedupLookup(dedupTask.fp, currentVersion,
+                LookupResult lookupResult = GlobalMetadataManagerPtr->dedupLookup(dedupTask.fp, TotalVersion,
                                                                                   &oldClass);
                 chunkCounter[(int) lookupResult]++;
 
@@ -102,19 +100,17 @@ private:
 
                 switch (lookupResult) {
                     case LookupResult::New:
-                        metaEntry = {
-                                dedupTask.length, (currentVersion + 1) * currentVersion / 2,
-                        };
-                        GlobalMetadataManagerPtr->newChunkAddRecord(writeTask.sha1Fp, currentVersion, metaEntry);
+                        GlobalMetadataManagerPtr->newChunkAddRecord(writeTask.sha1Fp,
+                                TotalVersion,
+                                (TotalVersion + 1) * TotalVersion / 2);
                         afterDedupLength += dedupTask.length;
                         break;
                     case LookupResult::InnerDedup:
                         break;
                     case LookupResult::NeighborDedup:
-                        metaEntry = {
-                                dedupTask.length, writeTask.oldClass + currentVersion - 1,
-                        };
-                        GlobalMetadataManagerPtr->neighborAddRecord(writeTask.sha1Fp, currentVersion, metaEntry);
+                        GlobalMetadataManagerPtr->neighborAddRecord(writeTask.sha1Fp,
+                                TotalVersion,
+                                writeTask.oldClass + TotalVersion - 1);
                         break;
                 }
 
@@ -125,8 +121,7 @@ private:
                     printf("DedupPipeline finish\n");
                     writeTask.countdownLatch = dedupTask.countdownLatch;
                     dedupTask.countdownLatch->countDown();
-                    GlobalMetadataManagerPtr->metatableReleaseLatch(currentVersion - 1);
-                    currentVersion++;
+                    GlobalMetadataManagerPtr->tableRolling();
                     newVersionFlag = true;
 
                     GlobalWriteFilePipelinePtr->addTask(writeTask);
@@ -153,8 +148,6 @@ private:
 
     uint64_t totalLength = 0;
     uint64_t afterDedupLength = 0;
-
-    uint64_t currentVersion = 1;
 
     uint64_t chunkCounter[4] = {0, 0, 0, 0};
 
