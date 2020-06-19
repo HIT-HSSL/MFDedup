@@ -65,8 +65,8 @@ public:
         MutexLockGuard mutexLockGuard(tableLock);
 
 
-        auto r = laterTable.find(sha1Fp);
-        if (r == laterTable.end()) {
+        auto r = earlierTable.find(sha1Fp);
+        if (r == earlierTable.end()) {
             return -1;
         } else {
             return 0;

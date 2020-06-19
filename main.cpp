@@ -224,7 +224,7 @@ int main(int argc, char **argv) {
             struct timeval t0, t1;
             gettimeofday(&t0, NULL);
 
-            system("echo3 > /proc/sys/vm/drop_caches");
+            system("echo 3 > /proc/sys/vm/drop_caches");
 
             StorageTask storageTask;
             CountdownLatch countdownLatch(5); // there are 5 pipelines in the workflow of write.
@@ -261,7 +261,7 @@ int main(int argc, char **argv) {
             printf("Arrangement duration:%lu us\n", singleGC);
             printf("----------------------------------------------\n");
 
-            system("echo3 > /proc/sys/vm/drop_caches");
+            system("echo 3 > /proc/sys/vm/drop_caches");
             if(TotalVersion > RetentionTime){
                 do_restore(1);// the first version
 
