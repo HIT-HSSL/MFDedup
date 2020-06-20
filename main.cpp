@@ -22,6 +22,8 @@ DEFINE_string(BatchFilePath,
 "", "batch process file path");
 DEFINE_string(ConfigFile,
         "", "config path");
+DEFINE_string(InputFile,
+              "", "input path");
 
 std::string LogicFilePath;
 std::string ClassFilePath;
@@ -30,6 +32,7 @@ std::string ManifestPath;
 std::string HomePath;
 uint64_t TotalVersion;
 uint64_t RetentionTime;
+std::string KVPath;
 
 int do_restore(uint64_t version){
     struct timeval t0, t1;
@@ -61,14 +64,13 @@ int do_restore(uint64_t version){
 }
 
 int do_delete(){
-    printf("----------------------------------------------\n");
+    printf("------------------------Deleting----------------------\n");
     printf("%lu versions exist, delete the earliest version\n", TotalVersion);
     printf("Delete Task..\n");
     Eliminator eliminator;
     eliminator.run(TotalVersion);
     GlobalMetadataManagerPtr->updateMetaTableAfterDeletion();
     TotalVersion--;
-    printf("----------------------------------------------\n");
 }
 
 int main(int argc, char **argv) {
@@ -76,19 +78,19 @@ int main(int argc, char **argv) {
     std::string statusStr("status");
     std::string restoreStr("restore");
     std::string writeStr("write");
+    std::string batchStr("batch");
     std::string eliminateStr("delete");
     std::string BenchModStr("bench");
 
     Manifest manifest;
     {
         ConfigReader configReader(FLAGS_ConfigFile);
-        printf("Reading Manifest..\n");
         ManifestReader manifestReader(&manifest);
         TotalVersion = manifest.TotalVersion;
     }
 
 
-    if (FLAGS_task == writeStr) {
+    if (FLAGS_task == batchStr) {
 
         // pipelines init
         //------------------------------------------------------
@@ -164,6 +166,106 @@ int main(int argc, char **argv) {
         {
             manifest.TotalVersion = TotalVersion;
             ManifestWriter manifestWriter(manifest);
+            GlobalMetadataManagerPtr->save();
+        }
+
+        printf("==============================================\n");
+        printf("writing duration:%lu, arrange duration:%lu\n", dedupDuration, gcDuration);
+        printf("Total deduplication duration:%fs, Total Size:%lu, Speed:%fMB/s\n", dedupDuration, totalSize,
+               (float) totalSize / dedupDuration);
+        GlobalDeduplicationPipelinePtr->getStatistics();
+        printf("done\n");
+        printf("==============================================\n");
+
+        // pipelines release
+        //------------------------------------------------------
+        delete GlobalReadPipelinePtr;
+        delete GlobalChunkingPipelinePtr;
+        delete GlobalHashingPipelinePtr;
+        delete GlobalDeduplicationPipelinePtr;
+        delete GlobalWriteFilePipelinePtr;
+        delete GlobalGCPipelinePtr;
+        delete GlobalMetadataManagerPtr;
+        //------------------------------------------------------
+
+    } else if (FLAGS_task == writeStr) {
+
+        // pipelines init
+        //------------------------------------------------------
+        GlobalReadPipelinePtr = new ReadFilePipeline();
+        GlobalChunkingPipelinePtr = new ChunkingPipeline();
+        GlobalHashingPipelinePtr = new HashingPipeline();
+        GlobalDeduplicationPipelinePtr = new DeduplicationPipeline();
+        GlobalWriteFilePipelinePtr = new WriteFilePipeline();
+        GlobalGCPipelinePtr = new GCPipeline();
+        GlobalMetadataManagerPtr = new MetadataManager();
+        //------------------------------------------------------
+
+        if(TotalVersion != 0)
+            GlobalMetadataManagerPtr->load();
+
+        uint64_t dedupDuration = 0, gcDuration = 0;
+        uint64_t totalSize = 0;
+        std::string subPath = FLAGS_InputFile;
+
+        {
+            TotalVersion++;
+            printf("-----------------------Backing up-----------------------\n");
+            printf("Dedup Task: %s\n", subPath.data());
+            struct timeval t0, t1;
+            gettimeofday(&t0, NULL);
+
+            StorageTask storageTask;
+            CountdownLatch countdownLatch(5); // there are 5 pipelines in the workflow of write.
+            storageTask.path = subPath;
+            storageTask.countdownLatch = &countdownLatch;
+            storageTask.fileID = TotalVersion;
+            GlobalReadPipelinePtr->addTask(&storageTask);
+            countdownLatch.wait();
+
+            gettimeofday(&t1, NULL);
+            uint64_t singleDedup = (t1.tv_sec - t0.tv_sec) * 1000000 + t1.tv_usec - t0.tv_usec;
+            dedupDuration += singleDedup;
+            printf("Task duration:%lu us, Task Size:%lu, Speed:%fMB/s\n", singleDedup, storageTask.length,
+                   (float) storageTask.length / singleDedup);
+            GlobalReadPipelinePtr->getStatistics();
+            GlobalChunkingPipelinePtr->getStatistics();
+            GlobalHashingPipelinePtr->getStatistics();
+            GlobalDeduplicationPipelinePtr->getStatistics();
+            GlobalWriteFilePipelinePtr->getStatistics();
+            totalSize += storageTask.length;
+
+            printf("----------------------Arrangement------------------------\n");
+            printf("GC Task: Version %lu\n", TotalVersion-1);
+            CountdownLatch gcLatch(1);
+            GCTask gcTask = {
+                    TotalVersion - 1, &gcLatch,
+            };
+            gettimeofday(&t0, NULL);
+            GlobalGCPipelinePtr->addTask(&gcTask);
+            gcLatch.wait();
+            gettimeofday(&t1, NULL);
+            uint64_t singleGC = (t1.tv_sec - t0.tv_sec) * 1000000 + t1.tv_usec - t0.tv_usec;
+            gcDuration += singleGC;
+
+            printf("------------------------Retention----------------------\n");
+            if(TotalVersion > RetentionTime){
+
+                printf("%lu versions exist, delete the earliest version\n", TotalVersion);
+                printf("Delete Task..\n");
+                Eliminator eliminator;
+                eliminator.run(TotalVersion);
+                GlobalMetadataManagerPtr->updateMetaTableAfterDeletion();
+                TotalVersion--;
+            }else{
+                printf("Only %lu versions exist, and the retention is %lu, deletion is not required.\n", TotalVersion, RetentionTime);
+            }
+        }
+
+        {
+            manifest.TotalVersion = TotalVersion;
+            ManifestWriter manifestWriter(manifest);
+            GlobalMetadataManagerPtr->save();
         }
 
         printf("==============================================\n");

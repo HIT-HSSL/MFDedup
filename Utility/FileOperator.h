@@ -87,6 +87,10 @@ public:
         return fileno(file);
     }
 
+    FILE* getFP(){
+        return file;
+    }
+
 private:
     FILE *file;
     int status = 0;

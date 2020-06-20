@@ -17,6 +17,7 @@ uint64_t shadMask = 0x7;
 int ReplaceThreshold = 10;
 
 extern uint64_t TotalVersion;
+extern std::string KVPath;
 
 struct TupleHasher {
     std::size_t
@@ -120,6 +121,56 @@ public:
             }
         }
         earlierTable.swap(alterTable);
+    }
+
+    int save(){
+        printf("------------------------Saving index----------------------\n");
+        printf("Saving index..\n");
+        uint64_t size;
+        FileOperator fileOperator((char*)KVPath.data(), FileOpenType::Write);
+        size = earlierTable.size();
+        fileOperator.write((uint8_t*)&size, sizeof(uint64_t));
+        for(auto item : earlierTable){
+            fileOperator.write((uint8_t*)&item.first, sizeof(SHA1FP));
+            fileOperator.write((uint8_t*)&item.second, sizeof(uint64_t));
+        }
+        printf("earlier table saves %lu items\n", size);
+        size = laterTable.size();
+        fileOperator.write((uint8_t*)&size, sizeof(uint64_t));
+        for(auto item : laterTable){
+            fileOperator.write((uint8_t*)&item.first, sizeof(SHA1FP));
+            fileOperator.write((uint8_t*)&item.second, sizeof(uint64_t));
+        }
+        printf("later table saves %lu items\n", size);
+        fileOperator.fdatasync();
+    }
+
+    int load(){
+        printf("-----------------------Loading index-----------------------\n");
+        printf("Loading index..\n");
+        uint64_t sizeE = 0;
+        uint64_t sizeL = 0;
+        SHA1FP tempFP;
+        uint64_t tempCID;
+        FileOperator fileOperator((char*)KVPath.data(), FileOpenType::Read);
+        assert(earlierTable.size() == 0);
+        assert(laterTable.size() == 0);
+
+        fileOperator.read((uint8_t*)&sizeE, sizeof(uint64_t));
+        for(uint64_t i = 0; i<sizeE; i++){
+            fileOperator.read((uint8_t*)&tempFP, sizeof(SHA1FP));
+            fileOperator.read((uint8_t*)&tempCID, sizeof(uint64_t));
+            earlierTable[tempFP] = tempCID;
+        }
+        printf("earlier table load %lu items\n", sizeE);
+
+        fileOperator.read((uint8_t*)&sizeL, sizeof(uint64_t));
+        for(uint64_t i = 0; i<sizeL; i++){
+            fileOperator.read((uint8_t*)&tempFP, sizeof(SHA1FP));
+            fileOperator.read((uint8_t*)&tempCID, sizeof(uint64_t));
+            laterTable[tempFP] = tempCID;
+        }
+        printf("later table load %lu items\n", sizeL);
     }
 
 private:
