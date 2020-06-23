@@ -57,6 +57,14 @@ public:
         return status;
     }
 
+    int ok(){
+        if(status == -1){
+            return 0;
+        }else{
+            return 1;
+        }
+    }
+
     uint64_t read(uint8_t *buffer, uint64_t length) {
         return fread(buffer, 1, length, file);
     }

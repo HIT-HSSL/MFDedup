@@ -15,43 +15,10 @@
 #include <functional>
 #include <sys/time.h>
 #include "gflags/gflags.h"
+#include "../Utility/BufferedFileWriter.h"
 
 DEFINE_uint64(ArrangementFlushBufferLength,
               67108864, "ArrangementFlushBufferLength");
-
-class ChunkWriter {
-public:
-    ChunkWriter(FileOperator *fd) : fileOperator(fd) {
-        writeBuffer = (uint8_t *) malloc(FLAGS_ArrangementFlushBufferLength);
-        writeBufferAvailable = FLAGS_ArrangementFlushBufferLength;
-    }
-
-    int writeChunk(uint8_t *chunk, int chunkLen) {
-        if (chunkLen > writeBufferAvailable) {
-            flush();
-        }
-        uint8_t *writePoint = writeBuffer + FLAGS_ArrangementFlushBufferLength - writeBufferAvailable;
-        memcpy(writePoint, chunk, chunkLen);
-        writeBufferAvailable -= chunkLen;
-        return 0;
-    }
-
-    ~ChunkWriter() {
-        flush();
-        free(writeBuffer);
-    }
-
-private:
-
-    int flush() {
-        fileOperator->write(writeBuffer, FLAGS_ArrangementFlushBufferLength - writeBufferAvailable);
-        writeBufferAvailable = FLAGS_ArrangementFlushBufferLength;
-    }
-
-    uint8_t *writeBuffer;
-    int writeBufferAvailable;
-    FileOperator *fileOperator;
-};
 
 class ArrangementWritePipeline{
 public:
@@ -98,25 +65,33 @@ private:
                 length[classIter] = classCounter;
                 classIter++;
                 classCounter = 0;
-                delete arrangementWriteTask;
 
-                char pathbuffer[512];
-                sprintf(pathbuffer, ClassFilePath.data(), arrangementWriteTask->classId);
+                delete activeFileWriter;
+                activeFileWriter = nullptr;
+
+                activeFileOperator->fdatasync();
+                delete activeFileOperator;
+                activeFileOperator = nullptr;
+
+                sprintf(pathBuffer, ClassFilePath.data(), arrangementWriteTask->previousClassId);
                 remove(pathBuffer);
+
+                delete arrangementWriteTask;
 
                 continue;
             }
 
             if(arrangementWriteTask->finalEndFlag){
-                delete chunkWriter;
-                chunkWriter = nullptr;
+                delete archivedFileWriter;
+                archivedFileWriter = nullptr;
 
-                fileOperator->seek(sizeof(VersionFileHeader));
-                fileOperator->write((uint8_t *) length, sizeof(uint64_t) * currentVersion);
+                archivedFileOperator->seek(sizeof(VersionFileHeader));
+                archivedFileOperator->write((uint8_t *) length, sizeof(uint64_t) * currentVersion);
 
-                fileOperator->fdatasync();
-                delete fileOperator;
-                fileOperator = nullptr;
+                archivedFileOperator->fdatasync();
+                delete archivedFileOperator;
+                archivedFileOperator = nullptr;
+
                 free(length);
                 currentVersion = -1;
 
@@ -126,23 +101,35 @@ private:
                 continue;
             }
 
-            if(fileOperator == nullptr){
-                sprintf(pathBuffer, VersionFilePath.data(), arrangementWriteTask->versionId);
-                fileOperator = new FileOperator(pathBuffer, FileOpenType::Write);
+            if(archivedFileOperator == nullptr){
                 VersionFileHeader versionFileHeader = {
-                        .offsetCount = arrangementWriteTask->versionId
+                        .offsetCount = arrangementWriteTask->arrangementVersion
                 };
-                fileOperator->write((uint8_t*)&versionFileHeader, sizeof(uint64_t));
-                fileOperator->seek(sizeof(VersionFileHeader) + sizeof(uint64_t) * versionFileHeader.offsetCount);
                 length = (uint64_t*)malloc(sizeof(uint64_t)*versionFileHeader.offsetCount);
-                currentVersion = arrangementWriteTask->versionId;
+                currentVersion = arrangementWriteTask->arrangementVersion;
                 classIter = 0;
                 classCounter = 0;
-                chunkWriter = new ChunkWriter(fileOperator);
+
+                sprintf(pathBuffer, VersionFilePath.data(), arrangementWriteTask->arrangementVersion);
+                archivedFileOperator = new FileOperator(pathBuffer, FileOpenType::Write);
+                archivedFileOperator->write((uint8_t*)&versionFileHeader, sizeof(uint64_t));
+                archivedFileOperator->seek(sizeof(VersionFileHeader) + sizeof(uint64_t) * versionFileHeader.offsetCount);
+                archivedFileWriter = new BufferedFileWriter(archivedFileOperator, FLAGS_ArrangementFlushBufferLength);
             }
 
-            chunkWriter->writeChunk(arrangementWriteTask->writeBuffer, arrangementWriteTask->length);
-            classCounter += arrangementWriteTask->length;
+            if(activeFileOperator == nullptr){
+                sprintf(pathBuffer, ClassFilePath.data(), arrangementWriteTask->previousClassId + arrangementWriteTask->arrangementVersion);
+                activeFileOperator = new FileOperator(pathBuffer, FileOpenType::Write);
+                activeFileWriter = new BufferedFileWriter(activeFileOperator, FLAGS_ArrangementFlushBufferLength);
+            }
+
+            if(arrangementWriteTask->previousClassId == arrangementWriteTask->currentClassId){
+                archivedFileWriter->write(arrangementWriteTask->writeBuffer, arrangementWriteTask->length);
+                classCounter += arrangementWriteTask->length;
+            }else{
+                activeFileWriter->write(arrangementWriteTask->writeBuffer, arrangementWriteTask->length);
+            }
+
 
         }
     }
@@ -154,8 +141,10 @@ private:
     MutexLock mutexLock;
     Condition condition;
 
-    FileOperator* fileOperator = nullptr;
-    ChunkWriter* chunkWriter = nullptr;
+    FileOperator* archivedFileOperator = nullptr;
+    FileOperator* activeFileOperator = nullptr;
+    BufferedFileWriter* archivedFileWriter = nullptr;
+    BufferedFileWriter* activeFileWriter = nullptr;
 };
 
 static ArrangementWritePipeline* GlobalArrangementWritePipelinePtr;

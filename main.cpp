@@ -30,6 +30,7 @@ std::string ClassFilePath;
 std::string VersionFilePath;
 std::string ManifestPath;
 std::string HomePath;
+std::string ClassFileAppendPath;
 uint64_t TotalVersion;
 uint64_t RetentionTime;
 std::string KVPath;
@@ -241,7 +242,7 @@ int main(int argc, char **argv) {
             totalSize += storageTask.length;
 
             printf("----------------------Arrangement------------------------\n");
-            printf("GC Task: Version %lu\n", TotalVersion-1);
+            printf("Arrangement Task: Version %lu\n", TotalVersion-1);
             CountdownLatch arrangementLatch(1);
             ArrangementTask arrangementTask = {
                     TotalVersion - 1, &arrangementLatch,

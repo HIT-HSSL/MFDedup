@@ -12,9 +12,12 @@
 #include "../MetadataManager/MetadataManager.h"
 #include "../Utility/ChunkWriterManager.h"
 #include "../Utility/Likely.h"
+#include "../Utility/BufferedFileWriter.h"
 
 extern std::string LogicFilePath;
 
+DEFINE_uint64(RecipeFlushBufferSize,
+              67108864, "RecipeFlushBufferSize");
 
 class WriteFilePipeline {
 public:
@@ -73,6 +76,7 @@ private:
                 if (!logicFileOperator) {
                     sprintf(buffer, LogicFilePath.c_str(), writeTask.fileID);
                     logicFileOperator = new FileOperator(buffer, FileOpenType::Write);
+                    bufferedFileWriter = new BufferedFileWriter(logicFileOperator, FLAGS_RecipeFlushBufferSize);
                 }
                 blockHeader = {
                         writeTask.sha1Fp,
@@ -83,22 +87,26 @@ private:
                         chunkWriterManager->writeClass((TotalVersion + 1) * TotalVersion / 2,
                                                        (uint8_t * ) & blockHeader, sizeof(BlockHeader),
                                                        writeTask.buffer + writeTask.pos, writeTask.bufferLength);
-                        logicFileOperator->write((uint8_t * ) & blockHeader, sizeof(BlockHeader));
+                        bufferedFileWriter->write((uint8_t * ) & blockHeader, sizeof(BlockHeader));
+//                        logicFileOperator->write((uint8_t * ) & blockHeader, sizeof(BlockHeader));
                         break;
                     case 1:
-                        logicFileOperator->write((uint8_t * ) & blockHeader, sizeof(BlockHeader));
+                        bufferedFileWriter->write((uint8_t * ) & blockHeader, sizeof(BlockHeader));
+//                        logicFileOperator->write((uint8_t * ) & blockHeader, sizeof(BlockHeader));
                         break;
                     case 2:
-                        chunkWriterManager->writeClass(writeTask.oldClass + TotalVersion - 1,
-                                                       (uint8_t * ) & blockHeader, sizeof(BlockHeader),
-                                                       writeTask.buffer + writeTask.pos, writeTask.bufferLength);
-                        logicFileOperator->write((uint8_t * ) & blockHeader, sizeof(BlockHeader));
+                        bufferedFileWriter->write((uint8_t * ) & blockHeader, sizeof(BlockHeader));
+//                        chunkWriterManager->writeClass(writeTask.oldClass + TotalVersion - 1,
+//                                                       (uint8_t * ) & blockHeader, sizeof(BlockHeader),
+//                                                       writeTask.buffer + writeTask.pos, writeTask.bufferLength);
+//                        logicFileOperator->write((uint8_t * ) & blockHeader, sizeof(BlockHeader));
                         break;
 
                 }
 
                 if (writeTask.countdownLatch) {
                     printf("WritePipeline finish\n");
+                    delete bufferedFileWriter;
                     logicFileOperator->fdatasync();
                     delete logicFileOperator;
                     logicFileOperator = nullptr;
@@ -118,6 +126,7 @@ private:
     }
 
     FileOperator *logicFileOperator;
+    BufferedFileWriter* bufferedFileWriter;
     char buffer[256];
     bool runningFlag;
     std::thread *worker;

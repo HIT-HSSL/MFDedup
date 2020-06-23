@@ -13,6 +13,7 @@ DEFINE_uint64(EliminateReadBuffer,
 extern std::string LogicFilePath;
 extern std::string ClassFilePath;
 extern std::string VersionFilePath;
+extern std::string ClassFileAppendPath;
 
 class Eliminator {
 public:
@@ -82,29 +83,38 @@ private:
     }
 
     int classFileCombinationProcessor(uint64_t classId1, uint64_t classId2, uint64_t maxVersion) {
+//        sprintf(oldPath, ClassFilePath.data(), classId1);
+//        sprintf(newPath, ClassFilePath.data(), classId2);
+//
+//        uint8_t *buffer = (uint8_t *) malloc(FLAGS_EliminateReadBuffer);
+//
+//        {
+//            FileOperator class1(oldPath, FileOpenType::Append);
+//            FileOperator class2(newPath, FileOpenType::Read);
+//            uint64_t left = FileOperator::size(newPath);
+//
+//            while (left > 0) {
+//                uint64_t readSize = class2.read(buffer, FLAGS_EliminateReadBuffer);
+//                class1.write(buffer, readSize);
+//                left -= readSize;
+//            }
+//        }
+//        free(buffer);
+//        remove(newPath); // delete class file with classid
+//
+//        sprintf(oldPath, ClassFilePath.data(), classId1);
+//        sprintf(newPath, ClassFilePath.data(), classId1 - (maxVersion - 1));
+//
+//        rename(oldPath, newPath);
+
         sprintf(oldPath, ClassFilePath.data(), classId1);
-        sprintf(newPath, ClassFilePath.data(), classId2);
-
-        uint8_t *buffer = (uint8_t *) malloc(FLAGS_EliminateReadBuffer);
-
-        {
-            FileOperator class1(oldPath, FileOpenType::Append);
-            FileOperator class2(newPath, FileOpenType::Read);
-            uint64_t left = FileOperator::size(newPath);
-
-            while (left > 0) {
-                uint64_t readSize = class2.read(buffer, FLAGS_EliminateReadBuffer);
-                class1.write(buffer, readSize);
-                left -= readSize;
-            }
-        }
-        free(buffer);
-        remove(newPath); // delete class file with classid
-
-        sprintf(oldPath, ClassFilePath.data(), classId1);
-        sprintf(newPath, ClassFilePath.data(), classId1 - (maxVersion - 1));
-
+        sprintf(newPath, ClassFilePath.data(), classId1 - (maxVersion-1));
         rename(oldPath, newPath);
+
+        sprintf(oldPath, ClassFilePath.data(), classId2);
+        sprintf(newPath, ClassFileAppendPath.data(), classId1 - (maxVersion-1));
+        rename(oldPath, newPath);
+
         return 0;
     }
 

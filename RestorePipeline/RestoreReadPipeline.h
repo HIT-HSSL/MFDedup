@@ -10,6 +10,8 @@
 #include <fcntl.h>
 #include "RestoreParserPipeline.h"
 
+extern std::string ClassFileAppendPath;
+
 class RestoreReadPipeline {
 public:
     RestoreReadPipeline() : taskAmount(0), runningFlag(true), mutexLock(),
@@ -64,6 +66,7 @@ private:
             for (auto &item : classList) {
                 readFromClassFile(item);
             }
+            readFromAppendClassFile(baseClass);
 
             RestoreParseTask *restoreParseTask = new RestoreParseTask(true);
             GlobalRestoreParserPipelinePtr->addTask(restoreParseTask);
@@ -131,6 +134,27 @@ private:
 
     int readFromClassFile(uint64_t classId) {
         sprintf(filePath, ClassFilePath.data(), classId);
+        FileOperator classReader(filePath, FileOpenType::Read);
+        int fd = classReader.getFd();
+
+        uint64_t leftLength = FileOperator::size(filePath);
+
+        while (leftLength > 0) {
+            uint8_t *readBuffer = (uint8_t *) malloc(FLAGS_RestoreReadBufferLength);
+            uint64_t bytesToRead =
+                    leftLength > FLAGS_RestoreReadBufferLength ? FLAGS_RestoreReadBufferLength : leftLength;;
+            uint64_t bytesFinallyRead = read(fd, readBuffer, bytesToRead);
+
+            leftLength -= bytesFinallyRead;
+
+            RestoreParseTask *restoreParseTask = new RestoreParseTask(readBuffer, bytesFinallyRead);
+            restoreParseTask->index = classId;
+            GlobalRestoreParserPipelinePtr->addTask(restoreParseTask);
+        }
+    }
+
+    int readFromAppendClassFile(uint64_t classId) {
+        sprintf(filePath, ClassFileAppendPath.data(), classId);
         FileOperator classReader(filePath, FileOpenType::Read);
         int fd = classReader.getFd();
 

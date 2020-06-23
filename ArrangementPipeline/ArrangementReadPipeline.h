@@ -57,16 +57,19 @@ private:
             if (likely(arrangementVersion > 0)) {
 
                 uint64_t startClass = (arrangementVersion - 1) * (arrangementVersion) / 2 + 1;
-                 uint64_t endClass = arrangementVersion * (arrangementVersion + 1) / 2;
-                for (uint64_t i = startClass; i <= endClass; i++) {
+                uint64_t endClass = arrangementVersion * (arrangementVersion + 1) / 2;
+
+                readClassWithAppend(startClass, arrangementVersion);
+                for (uint64_t i = startClass+1; i <= endClass; i++) {
                     readClass(i, arrangementVersion);
                 }
+
                 ArrangementFilterTask* arrangementFilterTask = new ArrangementFilterTask(true);
                 arrangementFilterTask->countdownLatch = arrangementTask->countdownLatch;
                 GlobalArrangementFilterPipelinePtr->addTask(arrangementFilterTask);
                 printf("ArrangementReadPipeline finish\n");
             } else {
-                printf("Version 0 does not exist and do not need to GC, skip\n");
+                printf("Do not need arrangement, skip\n");
                 arrangementTask->countdownLatch->countDown();
             }
         }
@@ -88,6 +91,40 @@ private:
             ArrangementFilterTask* arrangementFilterTask = new ArrangementFilterTask(buffer, readSize, classId, versionId);
             GlobalArrangementFilterPipelinePtr->addTask(arrangementFilterTask);
         }
+    }
+
+    uint64_t readClassWithAppend(uint64_t classId, uint64_t versionId){
+        char pathbuffer[512];
+        sprintf(pathbuffer, ClassFilePath.data(), classId);
+        FileOperator classFile((char *) pathbuffer, FileOpenType::Read);
+        while(1){
+            uint8_t* buffer = (uint8_t*)malloc(FLAGS_ArrangementReadBufferLength);
+            uint64_t readSize = classFile.read(buffer, FLAGS_ArrangementReadBufferLength);
+            if(readSize == 0) {
+                free(buffer);
+                break;
+            }
+            ArrangementFilterTask* arrangementFilterTask = new ArrangementFilterTask(buffer, readSize, classId, versionId);
+            GlobalArrangementFilterPipelinePtr->addTask(arrangementFilterTask);
+        }
+
+        sprintf(pathbuffer, ClassFileAppendPath.data(), classId);
+        FileOperator appendFile((char *) pathbuffer, FileOpenType::Read);
+        if(appendFile.ok()){
+            while(1){
+                uint8_t* buffer = (uint8_t*)malloc(FLAGS_ArrangementReadBufferLength);
+                uint64_t readSize = classFile.read(buffer, FLAGS_ArrangementReadBufferLength);
+                if(readSize == 0) {
+                    free(buffer);
+                    break;
+                }
+                ArrangementFilterTask* arrangementFilterTask = new ArrangementFilterTask(buffer, readSize, classId, versionId);
+                GlobalArrangementFilterPipelinePtr->addTask(arrangementFilterTask);
+            }
+        }
+
+        ArrangementFilterTask* arrangementFilterTask = new ArrangementFilterTask(true, classId);
+        GlobalArrangementFilterPipelinePtr->addTask(arrangementFilterTask);
     }
 
 

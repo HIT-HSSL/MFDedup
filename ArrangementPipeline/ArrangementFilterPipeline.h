@@ -106,10 +106,21 @@ private:
 
                 int r = GlobalMetadataManagerPtr->arrangementLookup(blockHeader->fp);
                 if(r){
-                    ArrangementWriteTask* arrangementWriteTask = new ArrangementWriteTask((uint8_t*)blockHeader, blockHeader->length + sizeof(BlockHeader), arrangementFilterTask->classId, arrangementFilterTask->arrangementVersion);
+                    ArrangementWriteTask* arrangementWriteTask = new ArrangementWriteTask(
+                            (uint8_t*)blockHeader,
+                            blockHeader->length + sizeof(BlockHeader),
+                            arrangementFilterTask->classId,
+                            arrangementFilterTask->classId,
+                            arrangementFilterTask->arrangementVersion);
                     GlobalArrangementWritePipelinePtr->addTask(arrangementWriteTask);
                 }else{
-                    // nothing
+                    ArrangementWriteTask* arrangementWriteTask = new ArrangementWriteTask(
+                            (uint8_t*)blockHeader,
+                            blockHeader->length + sizeof(BlockHeader),
+                            arrangementFilterTask->classId,
+                            arrangementFilterTask->classId + arrangementFilterTask->arrangementVersion,
+                            arrangementFilterTask->arrangementVersion);
+                    GlobalArrangementWritePipelinePtr->addTask(arrangementWriteTask);
                 }
                 readoffset += sizeof(BlockHeader) + blockHeader->length;
                 parseLeft -= sizeof(BlockHeader) + blockHeader->length;
