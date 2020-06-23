@@ -18,7 +18,7 @@
 #include "../Utility/BufferedFileWriter.h"
 
 DEFINE_uint64(ArrangementFlushBufferLength,
-              67108864, "ArrangementFlushBufferLength");
+              8388608, "ArrangementFlushBufferLength");
 
 class ArrangementWritePipeline{
 public:

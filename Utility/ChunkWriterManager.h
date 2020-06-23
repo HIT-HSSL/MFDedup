@@ -8,7 +8,7 @@
 #define MFDEDUP_CHUNKWRITERMANAGER_H
 
 DEFINE_uint64(WriteBufferLength,
-              33554432, "WriteBufferLength");
+              8388608, "WriteBufferLength");
 
 extern std::string ClassFilePath;
 extern std::string VersionFilePath;

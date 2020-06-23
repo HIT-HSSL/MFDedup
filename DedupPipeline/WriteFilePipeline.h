@@ -17,7 +17,7 @@
 extern std::string LogicFilePath;
 
 DEFINE_uint64(RecipeFlushBufferSize,
-              67108864, "RecipeFlushBufferSize");
+              8388608, "RecipeFlushBufferSize");
 
 class WriteFilePipeline {
 public:
