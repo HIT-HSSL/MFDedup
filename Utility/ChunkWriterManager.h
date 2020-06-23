@@ -7,8 +7,6 @@
 #ifndef MFDEDUP_CHUNKWRITERMANAGER_H
 #define MFDEDUP_CHUNKWRITERMANAGER_H
 
-//DEFINE_string(ClassFilePath, "/home/zxy/MFDedupHome/storageFiles/%lu", "class path");
-//DEFINE_string(VersionFilePath, "/home/zxy/MFDedupHome/storageFiles/v%lu", "version path");
 DEFINE_uint64(WriteBufferLength,
 4194304, "WriteBufferLength");
 

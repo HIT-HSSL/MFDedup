@@ -11,16 +11,9 @@
 #include "jemalloc/jemalloc.h"
 #include "../MetadataManager/MetadataManager.h"
 #include "../Utility/ChunkWriterManager.h"
-#include "GCPipieline.h"
-
-//DEFINE_string(LogicFilePath, "/home/zxy/MFDedupHome/logicFiles/%lu", "recipe path");
+#include "../Utility/Likely.h"
 
 extern std::string LogicFilePath;
-
-struct BlockHeader {
-    SHA1FP fp;
-    uint64_t length;
-};
 
 
 class WriteFilePipeline {

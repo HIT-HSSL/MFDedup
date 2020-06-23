@@ -119,9 +119,81 @@ struct RestoreWriteTask {
     }
 };
 
-struct GCTask {
-    uint64_t gcVersion;
+struct ArrangementWriteTask{
+    uint8_t* writeBuffer = nullptr;
+    uint64_t length;
+    uint64_t classId;
+    uint64_t versionId = -1;
+    bool classEndFlag = false;
+    bool finalEndFlag = false;
+    CountdownLatch* countdownLatch;
+
+    ArrangementWriteTask(uint8_t *buf, uint64_t len, uint64_t cid, uint64_t version) {
+        writeBuffer = (uint8_t *) malloc(len);
+        memcpy(writeBuffer, buf, len);
+        length = len;
+        classId = cid;
+        versionId = version;
+    }
+
+    ArrangementWriteTask(bool flag, uint64_t cid) {
+        classEndFlag = true;
+        classId = cid;
+    }
+
+    ArrangementWriteTask(bool flag){
+        finalEndFlag = true;
+    }
+
+    ~ArrangementWriteTask() {
+        if (writeBuffer) {
+            free(writeBuffer);
+        }
+    }
+};
+
+struct ArrangementFilterTask{
+    uint8_t* readBuffer = nullptr;
+    uint64_t length;
+    uint64_t classId;
+    uint64_t arrangementVersion;
+    bool classEndFlag = false;
+    bool finalEndFlag = false;
+    CountdownLatch* countdownLatch;
+
+    ArrangementFilterTask(uint8_t *buf, uint64_t len, uint64_t cid, uint64_t version) {
+        readBuffer = buf;
+        length = len;
+        classId = cid;
+        arrangementVersion = version;
+    }
+
+    ArrangementFilterTask(bool flag, uint64_t cid) {
+        classEndFlag = true;
+        classId = cid;
+    }
+
+    ArrangementFilterTask(bool flag){
+        finalEndFlag = true;
+    }
+
+    ~ArrangementFilterTask(){
+        if(readBuffer) free(readBuffer);
+    }
+};
+
+struct ArrangementTask {
+    uint64_t arrangementVersion;
     CountdownLatch *countdownLatch = nullptr;
+};
+
+struct BlockHeader {
+    SHA1FP fp;
+    uint64_t length;
+};
+
+struct VersionFileHeader {
+    uint64_t offsetCount;
 };
 
 #endif //MDFDEDUP_STORAGETASK_H

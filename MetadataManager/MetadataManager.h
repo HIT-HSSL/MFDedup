@@ -62,7 +62,7 @@ public:
 
     }
 
-    int gcLookup(const SHA1FP &sha1Fp, uint64_t gcVersion) {
+    int arrangementLookup(const SHA1FP &sha1Fp) {
         MutexLockGuard mutexLockGuard(tableLock);
 
         auto r = earlierTable.find(sha1Fp);

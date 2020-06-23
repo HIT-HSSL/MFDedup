@@ -14,7 +14,7 @@
 #include <assert.h>
 
 DEFINE_uint64(RestoreReadBufferLength,
-              8388608, "WriteBufferLength");
+              8388608, "RestoreReadBufferLength");
 
 class RestoreParserPipeline {
 public:
