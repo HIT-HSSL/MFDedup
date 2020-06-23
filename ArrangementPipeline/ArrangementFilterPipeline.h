@@ -114,13 +114,13 @@ private:
                             arrangementFilterTask->arrangementVersion);
                     GlobalArrangementWritePipelinePtr->addTask(arrangementWriteTask);
                 }else{
-                    ArrangementWriteTask* arrangementWriteTask = new ArrangementWriteTask(
-                            (uint8_t*)blockHeader,
-                            blockHeader->length + sizeof(BlockHeader),
-                            arrangementFilterTask->classId,
-                            arrangementFilterTask->classId + arrangementFilterTask->arrangementVersion,
-                            arrangementFilterTask->arrangementVersion);
-                    GlobalArrangementWritePipelinePtr->addTask(arrangementWriteTask);
+//                    ArrangementWriteTask* arrangementWriteTask = new ArrangementWriteTask(
+//                            (uint8_t*)blockHeader,
+//                            blockHeader->length + sizeof(BlockHeader),
+//                            arrangementFilterTask->classId,
+//                            arrangementFilterTask->classId + arrangementFilterTask->arrangementVersion,
+//                            arrangementFilterTask->arrangementVersion);
+//                    GlobalArrangementWritePipelinePtr->addTask(arrangementWriteTask);
                 }
                 readoffset += sizeof(BlockHeader) + blockHeader->length;
                 parseLeft -= sizeof(BlockHeader) + blockHeader->length;

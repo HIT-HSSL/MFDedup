@@ -232,7 +232,7 @@ int main(int argc, char **argv) {
             gettimeofday(&t1, NULL);
             uint64_t singleDedup = (t1.tv_sec - t0.tv_sec) * 1000000 + t1.tv_usec - t0.tv_usec;
             dedupDuration += singleDedup;
-            printf("Task duration:%lu us, Task Size:%lu, Speed:%fMB/s\n", singleDedup, storageTask.length,
+            printf("Writing duration:%lu us, Writing Size:%lu, Speed:%fMB/s\n", singleDedup, storageTask.length,
                    (float) storageTask.length / singleDedup);
             GlobalReadPipelinePtr->getStatistics();
             GlobalChunkingPipelinePtr->getStatistics();
@@ -251,8 +251,9 @@ int main(int argc, char **argv) {
             GlobalArrangementReadPipelinePtr->addTask(&arrangementTask);
             arrangementLatch.wait();
             gettimeofday(&t1, NULL);
-            uint64_t singleGC = (t1.tv_sec - t0.tv_sec) * 1000000 + t1.tv_usec - t0.tv_usec;
-            arrDuration += singleGC;
+            uint64_t singleArr = (t1.tv_sec - t0.tv_sec) * 1000000 + t1.tv_usec - t0.tv_usec;
+            arrDuration += singleArr;
+            printf("Arrangement duration : %lu\n", singleArr);
 
             printf("------------------------Retention----------------------\n");
             if(TotalVersion > RetentionTime){

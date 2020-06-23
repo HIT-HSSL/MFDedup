@@ -26,7 +26,7 @@ public:
         startClass = currentVersion * (currentVersion - 1) / 2 + 1;
         endClass = (currentVersion + 1) * currentVersion / 2;
 
-        for (uint64_t i = endClass/*startClass*/; i <= endClass; i++) {
+        for (uint64_t i = startClass; i <= endClass; i++) {
             sprintf(pathBuffer, ClassFilePath.data(), i);
             FileOperator *fd = new FileOperator(pathBuffer, FileOpenType::Write);
             fdMap[i] = fd;

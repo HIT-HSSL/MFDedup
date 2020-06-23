@@ -156,21 +156,23 @@ private:
     int readFromAppendClassFile(uint64_t classId) {
         sprintf(filePath, ClassFileAppendPath.data(), classId);
         FileOperator classReader(filePath, FileOpenType::Read);
-        int fd = classReader.getFd();
+        if(classReader.ok()){
+            int fd = classReader.getFd();
 
-        uint64_t leftLength = FileOperator::size(filePath);
+            uint64_t leftLength = FileOperator::size(filePath);
 
-        while (leftLength > 0) {
-            uint8_t *readBuffer = (uint8_t *) malloc(FLAGS_RestoreReadBufferLength);
-            uint64_t bytesToRead =
-                    leftLength > FLAGS_RestoreReadBufferLength ? FLAGS_RestoreReadBufferLength : leftLength;;
-            uint64_t bytesFinallyRead = read(fd, readBuffer, bytesToRead);
+            while (leftLength > 0) {
+                uint8_t *readBuffer = (uint8_t *) malloc(FLAGS_RestoreReadBufferLength);
+                uint64_t bytesToRead =
+                        leftLength > FLAGS_RestoreReadBufferLength ? FLAGS_RestoreReadBufferLength : leftLength;;
+                uint64_t bytesFinallyRead = read(fd, readBuffer, bytesToRead);
 
-            leftLength -= bytesFinallyRead;
+                leftLength -= bytesFinallyRead;
 
-            RestoreParseTask *restoreParseTask = new RestoreParseTask(readBuffer, bytesFinallyRead);
-            restoreParseTask->index = classId;
-            GlobalRestoreParserPipelinePtr->addTask(restoreParseTask);
+                RestoreParseTask *restoreParseTask = new RestoreParseTask(readBuffer, bytesFinallyRead);
+                restoreParseTask->index = classId;
+                GlobalRestoreParserPipelinePtr->addTask(restoreParseTask);
+            }
         }
     }
 

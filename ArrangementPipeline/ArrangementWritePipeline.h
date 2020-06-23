@@ -66,13 +66,6 @@ private:
                 classIter++;
                 classCounter = 0;
 
-                delete activeFileWriter;
-                activeFileWriter = nullptr;
-
-                activeFileOperator->fdatasync();
-                delete activeFileOperator;
-                activeFileOperator = nullptr;
-
                 sprintf(pathBuffer, ClassFilePath.data(), arrangementWriteTask->previousClassId);
                 remove(pathBuffer);
 
@@ -117,18 +110,8 @@ private:
                 archivedFileWriter = new BufferedFileWriter(archivedFileOperator, FLAGS_ArrangementFlushBufferLength);
             }
 
-            if(activeFileOperator == nullptr){
-                sprintf(pathBuffer, ClassFilePath.data(), arrangementWriteTask->previousClassId + arrangementWriteTask->arrangementVersion);
-                activeFileOperator = new FileOperator(pathBuffer, FileOpenType::Write);
-                activeFileWriter = new BufferedFileWriter(activeFileOperator, FLAGS_ArrangementFlushBufferLength);
-            }
-
-            if(arrangementWriteTask->previousClassId == arrangementWriteTask->currentClassId){
-                archivedFileWriter->write(arrangementWriteTask->writeBuffer, arrangementWriteTask->length);
-                classCounter += arrangementWriteTask->length;
-            }else{
-                activeFileWriter->write(arrangementWriteTask->writeBuffer, arrangementWriteTask->length);
-            }
+            archivedFileWriter->write(arrangementWriteTask->writeBuffer, arrangementWriteTask->length);
+            classCounter += arrangementWriteTask->length;
 
 
         }
@@ -142,9 +125,9 @@ private:
     Condition condition;
 
     FileOperator* archivedFileOperator = nullptr;
-    FileOperator* activeFileOperator = nullptr;
+//    FileOperator* activeFileOperator = nullptr;
     BufferedFileWriter* archivedFileWriter = nullptr;
-    BufferedFileWriter* activeFileWriter = nullptr;
+//    BufferedFileWriter* activeFileWriter = nullptr;
 };
 
 static ArrangementWritePipeline* GlobalArrangementWritePipelinePtr;

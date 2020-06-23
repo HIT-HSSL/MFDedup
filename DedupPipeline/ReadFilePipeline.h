@@ -13,7 +13,7 @@
 #include "../Utility/FileOperator.h"
 #include "ChunkingPipeline.h"
 
-const uint64_t ReadPipelineReadBlockSize = (uint64_t) 128 * 1024 * 1024;
+const uint64_t ReadPipelineReadBlockSize = (uint64_t) 32 * 1024 * 1024;
 
 class ReadFilePipeline {
 public:
