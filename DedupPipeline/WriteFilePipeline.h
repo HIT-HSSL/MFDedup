@@ -107,7 +107,7 @@ private:
 
                 if (writeTask.countdownLatch) {
                     printf("WritePipeline finish\n");
-                    //delete bufferedFileWriter;
+                    delete bufferedFileWriter;
                     delete logicFileOperator;
                     logicFileOperator = nullptr;
                     delete chunkWriterManager;

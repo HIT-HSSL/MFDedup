@@ -139,7 +139,7 @@ private:
     std::unordered_map<uint64_t, uint64_t> syncCounterMap;
     uint64_t startClass;
     uint64_t endClass;
-    char pathBuffer[1024];
+    char pathBuffer[256];
 
     std::thread* syncWorker;
     bool runningFlag;

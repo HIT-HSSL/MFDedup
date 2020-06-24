@@ -64,6 +64,7 @@ private:
                 classList.push_back(i);
                 printf("class # %lu is required\n", i);
             }
+            printf("append class # %lu is optional\n", baseClass);
 
             for (auto &item : versionList) {
                 readFromVersionFile(item, restoreTask->targetVersion);

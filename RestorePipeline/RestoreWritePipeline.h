@@ -7,6 +7,59 @@
 #ifndef MFDEDUP_RESTOREWRITEPIPELINE_H
 #define MFDEDUP_RESTOREWRITEPIPELINE_H
 
+class FileFlusher{
+public:
+    FileFlusher(FileOperator* f): runningFlag(true), taskAmount(0), mutexLock(), condition(mutexLock), fileOperator(f){
+        worker = new std::thread(std::bind(&FileFlusher::fileFlusherCallback, this));
+    }
+
+    int addTask(uint64_t task) {
+        MutexLockGuard mutexLockGuard(mutexLock);
+        taskList.push_back(task);
+        taskAmount++;
+        condition.notify();
+    }
+
+    ~FileFlusher(){
+        addTask(-1);
+        worker->join();
+    }
+
+
+private:
+
+    void fileFlusherCallback(){
+        uint64_t task;
+        while (likely(runningFlag)) {
+            {
+                MutexLockGuard mutexLockGuard(mutexLock);
+                while (!taskAmount) {
+                    condition.wait();
+                    if (unlikely(!runningFlag)) break;
+                }
+                if (unlikely(!runningFlag)) continue;
+                taskAmount--;
+                task = taskList.front();
+                taskList.pop_front();
+            }
+
+            if(task == -1){
+                break;
+            }
+
+            fileOperator->fdatasync();
+        }
+    }
+
+    std::thread* worker;
+    bool runningFlag;
+    uint64_t taskAmount;
+    std::list<uint64_t> taskList;
+    MutexLock mutexLock;
+    Condition condition;
+    FileOperator* fileOperator;
+};
+
 class RestoreWritePipeline {
 public:
     RestoreWritePipeline(std::string restorePath, CountdownLatch *cd) : taskAmount(0), runningFlag(true), mutexLock(),
@@ -44,6 +97,7 @@ private:
     void restoreWriteCallback() {
         RestoreWriteTask *restoreWriteTask;
         int fd = fileOperator->getFd();
+        FileFlusher fileFlusher(fileOperator);
 
         struct timeval t0, t1;
 
@@ -72,6 +126,12 @@ private:
 
             pwrite(fd, restoreWriteTask->buffer, restoreWriteTask->length, restoreWriteTask->pos);
 
+            syncCounter++;
+            if(syncCounter > 1024){
+                fileFlusher.addTask(1);
+                syncCounter = 0;
+            }
+
             delete restoreWriteTask;
             gettimeofday(&t1, NULL);
             duration += (t1.tv_sec-t0.tv_sec)*1000000 + t1.tv_usec - t0.tv_usec;
@@ -91,6 +151,8 @@ private:
     uint64_t totalSize = 0;
 
     uint64_t duration = 0;
+
+    uint64_t syncCounter = 0;
 };
 
 static RestoreWritePipeline *GlobalRestoreWritePipelinePtr;
