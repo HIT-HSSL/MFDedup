@@ -107,7 +107,7 @@ private:
                 archivedFileOperator = new FileOperator(pathBuffer, FileOpenType::Write);
                 archivedFileOperator->write((uint8_t*)&versionFileHeader, sizeof(uint64_t));
                 archivedFileOperator->seek(sizeof(VersionFileHeader) + sizeof(uint64_t) * versionFileHeader.offsetCount);
-                archivedFileWriter = new BufferedFileWriter(archivedFileOperator, FLAGS_ArrangementFlushBufferLength);
+                archivedFileWriter = new BufferedFileWriter(archivedFileOperator, FLAGS_ArrangementFlushBufferLength, 1);
             }
 
             archivedFileWriter->write(arrangementWriteTask->writeBuffer, arrangementWriteTask->length);

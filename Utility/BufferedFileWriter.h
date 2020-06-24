@@ -7,12 +7,9 @@
 #ifndef MFDEDUP_BUFFEREDFILEWRITER_H
 #define MFDEDUP_BUFFEREDFILEWRITER_H
 
-DEFINE_uint64(BufferedWriterFlushThreshold,
-              8, "WriteBufferLength");
-
 class BufferedFileWriter {
 public:
-    BufferedFileWriter(FileOperator *fd, uint64_t size) : fileOperator(fd), bufferSize(size) {
+    BufferedFileWriter(FileOperator *fd, uint64_t size, uint64_t st) : fileOperator(fd), bufferSize(size), syncThreshold(st) {
         writeBuffer = (uint8_t *) malloc(bufferSize);
         writeBufferAvailable = bufferSize;
     }
@@ -39,7 +36,7 @@ private:
         fileOperator->write(writeBuffer, bufferSize - writeBufferAvailable);
         writeBufferAvailable = bufferSize;
         counter++;
-        if(counter >= FLAGS_BufferedWriterFlushThreshold){
+        if(counter >= syncThreshold){
             fileOperator->fdatasync();
             counter = 0;
         }
@@ -51,6 +48,7 @@ private:
     FileOperator *fileOperator;
 
     uint64_t counter = 0;
+    uint64_t syncThreshold = 0;
 };
 
 #endif //MFDEDUP_BUFFEREDFILEWRITER_H

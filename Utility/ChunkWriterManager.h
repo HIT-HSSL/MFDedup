@@ -7,6 +7,8 @@
 #ifndef MFDEDUP_CHUNKWRITERMANAGER_H
 #define MFDEDUP_CHUNKWRITERMANAGER_H
 
+#include "Likely.h"
+
 DEFINE_uint64(WriteBufferLength,
               8388608, "WriteBufferLength");
 
@@ -25,7 +27,7 @@ struct WriteBuffer {
 
 class ChunkWriterManager {
 public:
-    ChunkWriterManager(uint64_t currentVersion) {
+    ChunkWriterManager(uint64_t currentVersion):runningFlag(true), taskAmount(0), mutexLock(), condition(mutexLock) {
         startClass = currentVersion * (currentVersion - 1) / 2 + 1;
         endClass = (currentVersion + 1) * currentVersion / 2;
 
@@ -40,6 +42,8 @@ public:
             };
             writeBufferMap[i] = writeBuffer;
         }
+
+        syncWorker = new std::thread(std::bind(&ChunkWriterManager::ChunkWriterManagerCallback, this));
     }
 
     int writeClass(uint64_t classId, uint8_t *header, uint64_t headerLen, uint8_t *buffer, uint64_t bufferLen) {
@@ -65,6 +69,8 @@ public:
 
 
     ~ChunkWriterManager() {
+        addTask(-1);
+        syncWorker->join();
         for (auto entry : fdMap) {
             classFlush(entry.first);
         }
@@ -86,7 +92,7 @@ private:
             fdIter->second->write((uint8_t *) bufferIter->second.buffer, flushLength);
             bufferIter->second.available = bufferIter->second.totalLength;
             if(syncCounterMap[classId] >= FLAGS_ChunkWriterManagerFlushThreshold){
-                fdIter->second->fdatasync();
+                addTask(classId);
                 syncCounterMap[classId] = 0;
             }else{
                 syncCounterMap[classId]++;
@@ -97,13 +103,50 @@ private:
         }
     }
 
-    uint64_t currentVersion;
+    int addTask(uint64_t classId) {
+        MutexLockGuard mutexLockGuard(mutexLock);
+        taskList.push_back(classId);
+        taskAmount++;
+        condition.notify();
+    }
+
+    void ChunkWriterManagerCallback(){
+        uint64_t classId;
+        while (likely(runningFlag)) {
+            {
+                MutexLockGuard mutexLockGuard(mutexLock);
+                while (!taskAmount) {
+                    condition.wait();
+                    if (unlikely(!runningFlag)) break;
+                }
+                if (unlikely(!runningFlag)) continue;
+                taskAmount--;
+                classId = taskList.front();
+                taskList.pop_front();
+            }
+
+            if(classId == -1){
+                break;
+            }
+
+            auto fdIter = fdMap.find(classId);
+            fdIter->second->fdatasync();
+        }
+    }
+
     std::unordered_map<uint64_t, FileOperator *> fdMap;
-    std::unordered_map <uint64_t, WriteBuffer> writeBufferMap;
+    std::unordered_map<uint64_t, WriteBuffer> writeBufferMap;
     std::unordered_map<uint64_t, uint64_t> syncCounterMap;
     uint64_t startClass;
     uint64_t endClass;
     char pathBuffer[1024];
+
+    std::thread* syncWorker;
+    bool runningFlag;
+    uint64_t taskAmount;
+    std::list<uint64_t> taskList;
+    MutexLock mutexLock;
+    Condition condition;
 };
 
 #endif //MFDEDUP_CHUNKWRITERMANAGER_H
