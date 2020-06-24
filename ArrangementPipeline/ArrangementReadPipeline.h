@@ -113,7 +113,7 @@ private:
         if(appendFile.ok()){
             while(1){
                 uint8_t* buffer = (uint8_t*)malloc(FLAGS_ArrangementReadBufferLength);
-                uint64_t readSize = classFile.read(buffer, FLAGS_ArrangementReadBufferLength);
+                uint64_t readSize = appendFile.read(buffer, FLAGS_ArrangementReadBufferLength);
                 if(readSize == 0) {
                     free(buffer);
                     break;
