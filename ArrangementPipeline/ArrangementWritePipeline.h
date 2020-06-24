@@ -61,6 +61,24 @@ private:
                 taskList.pop_front();
             }
 
+            if(arrangementWriteTask->startFlag){
+                VersionFileHeader versionFileHeader = {
+                        .offsetCount = arrangementWriteTask->arrangementVersion
+                };
+                length = (uint64_t*)malloc(sizeof(uint64_t)*versionFileHeader.offsetCount);
+                currentVersion = arrangementWriteTask->arrangementVersion;
+                classIter = 0;
+                classCounter = 0;
+
+                sprintf(pathBuffer, VersionFilePath.data(), arrangementWriteTask->arrangementVersion);
+                archivedFileOperator = new FileOperator(pathBuffer, FileOpenType::Write);
+                archivedFileOperator->trunc(arrangementWriteTask->totalSize + (arrangementWriteTask->arrangementVersion+1)*sizeof(uint64_t));
+                archivedFileOperator->seek(0);
+                archivedFileOperator->write((uint8_t*)&versionFileHeader, sizeof(uint64_t));
+                archivedFileOperator->seek(sizeof(VersionFileHeader) + sizeof(uint64_t) * versionFileHeader.offsetCount);
+                archivedFileWriter = new BufferedFileWriter(archivedFileOperator, FLAGS_ArrangementFlushBufferLength, 4);
+            }
+
             if(arrangementWriteTask->classEndFlag){
                 length[classIter] = classCounter;
                 classIter++;
@@ -94,25 +112,8 @@ private:
                 continue;
             }
 
-            if(archivedFileOperator == nullptr){
-                VersionFileHeader versionFileHeader = {
-                        .offsetCount = arrangementWriteTask->arrangementVersion
-                };
-                length = (uint64_t*)malloc(sizeof(uint64_t)*versionFileHeader.offsetCount);
-                currentVersion = arrangementWriteTask->arrangementVersion;
-                classIter = 0;
-                classCounter = 0;
-
-                sprintf(pathBuffer, VersionFilePath.data(), arrangementWriteTask->arrangementVersion);
-                archivedFileOperator = new FileOperator(pathBuffer, FileOpenType::Write);
-                archivedFileOperator->write((uint8_t*)&versionFileHeader, sizeof(uint64_t));
-                archivedFileOperator->seek(sizeof(VersionFileHeader) + sizeof(uint64_t) * versionFileHeader.offsetCount);
-                archivedFileWriter = new BufferedFileWriter(archivedFileOperator, FLAGS_ArrangementFlushBufferLength, 4);
-            }
-
             archivedFileWriter->write(arrangementWriteTask->writeBuffer, arrangementWriteTask->length);
             classCounter += arrangementWriteTask->length;
-
 
         }
     }

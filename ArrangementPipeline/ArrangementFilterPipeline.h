@@ -58,6 +58,16 @@ private:
                 taskList.pop_front();
             }
 
+            if(unlikely(arrangementFilterTask->startFlag)){
+                ArrangementWriteTask* arrangementWriteTask = new ArrangementWriteTask();
+                arrangementWriteTask->startFlag = true;
+                arrangementWriteTask->totalSize = arrangementFilterTask->totalSize;
+                arrangementWriteTask->arrangementVersion = arrangementFilterTask->arrangementVersion;
+                GlobalArrangementWritePipelinePtr->addTask(arrangementWriteTask);
+                delete arrangementFilterTask;
+                continue;
+            }
+
             if(unlikely(arrangementFilterTask->classEndFlag)){
                 ArrangementWriteTask* arrangementWriteTask = new ArrangementWriteTask(true, arrangementFilterTask->classId);
                 GlobalArrangementWritePipelinePtr->addTask(arrangementWriteTask);

@@ -59,6 +59,19 @@ private:
                 uint64_t startClass = (arrangementVersion - 1) * (arrangementVersion) / 2 + 1;
                 uint64_t endClass = arrangementVersion * (arrangementVersion + 1) / 2;
 
+                uint64_t beforeSize = 0, activeSize = 0;
+                for(int i=startClass; i<=endClass; i++){
+                    beforeSize +=  getClassFileSize(i);
+                    activeSize += getClassFileSize(i + arrangementVersion);
+                }
+                beforeSize += getAppendClassFileSize(startClass);
+
+                ArrangementFilterTask* startTask = new ArrangementFilterTask();
+                startTask->startFlag = true;
+                startTask->totalSize = beforeSize - activeSize;
+                startTask->arrangementVersion = arrangementVersion;
+                GlobalArrangementFilterPipelinePtr->addTask(startTask);
+
                 readClassWithAppend(startClass, arrangementVersion);
                 for (uint64_t i = startClass+1; i <= endClass; i++) {
                     readClass(i, arrangementVersion);
@@ -125,6 +138,18 @@ private:
 
         ArrangementFilterTask* arrangementFilterTask = new ArrangementFilterTask(true, classId);
         GlobalArrangementFilterPipelinePtr->addTask(arrangementFilterTask);
+    }
+
+    uint64_t getClassFileSize(uint64_t classId){
+        char path[256];
+        sprintf(path, ClassFilePath.data(), classId);
+        return FileOperator::size(path);
+    }
+
+    uint64_t getAppendClassFileSize(uint64_t classId){
+        char path[256];
+        sprintf(path, ClassFileAppendPath.data(), classId);
+        return FileOperator::size(path);
     }
 
 

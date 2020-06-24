@@ -83,8 +83,13 @@ public:
 
     static uint64_t size(const std::string &path) {
         struct stat statBuffer;
-        stat(path.c_str(), &statBuffer);
-        return statBuffer.st_size;
+        int r = stat(path.c_str(), &statBuffer);
+        if(!r){
+            return statBuffer.st_size;
+        }else{
+            return 0;
+        }
+
     }
 
     int fdatasync() {

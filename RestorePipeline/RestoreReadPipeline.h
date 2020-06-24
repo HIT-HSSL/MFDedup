@@ -28,7 +28,6 @@ public:
 
     ~RestoreReadPipeline() {
         printf("restore read duration :%lu\n", duration);
-        printf("restore read function duration :%lu\n", readDuration);
         runningFlag = false;
         condition.notifyAll();
         worker->join();
@@ -94,10 +93,7 @@ private:
         {
             uint8_t *readBuffer = (uint8_t *) malloc(FLAGS_RestoreReadBufferLength);
             uint64_t bytesToRead = FLAGS_RestoreReadBufferLength;
-            gettimeofday(&rt0, NULL);
             uint64_t bytesFinallyRead = fread(readBuffer, 1, bytesToRead, versionFileFD);
-            gettimeofday(&rt1, NULL);
-            readDuration += (rt1.tv_sec-rt0.tv_sec)*1000000 + rt1.tv_usec - rt0.tv_usec;
             versionFileHeader = (VersionFileHeader*)readBuffer;
             uint64_t* offset = (uint64_t*)(readBuffer + sizeof(VersionFileHeader));
             for(int i=0; i<restoreVersion; i++){
@@ -124,10 +120,7 @@ private:
             uint8_t *readBuffer = (uint8_t *) malloc(FLAGS_RestoreReadBufferLength);
             uint64_t bytesToRead =
                     leftLength > FLAGS_RestoreReadBufferLength ? FLAGS_RestoreReadBufferLength : leftLength;
-            gettimeofday(&rt0, NULL);
             uint64_t bytesFinallyRead = fread(readBuffer, 1, bytesToRead, versionFileFD);
-            gettimeofday(&rt1, NULL);
-            readDuration += (rt1.tv_sec-rt0.tv_sec)*1000000 + rt1.tv_usec - rt0.tv_usec;
             leftLength -= bytesFinallyRead;
 
             RestoreParseTask* restoreParseTask = new RestoreParseTask(readBuffer, bytesFinallyRead);
@@ -148,10 +141,7 @@ private:
             uint8_t *readBuffer = (uint8_t *) malloc(FLAGS_RestoreReadBufferLength);
             uint64_t bytesToRead =
                     leftLength > FLAGS_RestoreReadBufferLength ? FLAGS_RestoreReadBufferLength : leftLength;
-            gettimeofday(&rt0, NULL);
             uint64_t bytesFinallyRead = read(fd, readBuffer, bytesToRead);
-            gettimeofday(&rt1, NULL);
-            readDuration += (rt1.tv_sec-rt0.tv_sec)*1000000 + rt1.tv_usec - rt0.tv_usec;
 
             leftLength -= bytesFinallyRead;
 
@@ -173,10 +163,7 @@ private:
                 uint8_t *readBuffer = (uint8_t *) malloc(FLAGS_RestoreReadBufferLength);
                 uint64_t bytesToRead =
                         leftLength > FLAGS_RestoreReadBufferLength ? FLAGS_RestoreReadBufferLength : leftLength;
-                gettimeofday(&rt0, NULL);
                 uint64_t bytesFinallyRead = read(fd, readBuffer, bytesToRead);
-                gettimeofday(&rt1, NULL);
-                readDuration += (rt1.tv_sec-rt0.tv_sec)*1000000 + rt1.tv_usec - rt0.tv_usec;
 
                 leftLength -= bytesFinallyRead;
 
@@ -197,8 +184,6 @@ private:
     Condition condition;
 
     uint64_t duration = 0;
-    uint64_t readDuration = 0;
-    struct timeval rt0, rt1;
 };
 
 static RestoreReadPipeline *GlobalRestoreReadPipelinePtr;

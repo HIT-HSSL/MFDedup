@@ -125,8 +125,10 @@ struct ArrangementWriteTask{
     uint64_t previousClassId;
     uint64_t currentClassId;
     uint64_t arrangementVersion = -1;
+    uint64_t totalSize = 0;
     bool classEndFlag = false;
     bool finalEndFlag = false;
+    bool startFlag = false;
     CountdownLatch* countdownLatch;
 
     ArrangementWriteTask(uint8_t *buf, uint64_t len, uint64_t pcid, uint64_t ccid, uint64_t version) {
@@ -147,6 +149,10 @@ struct ArrangementWriteTask{
         finalEndFlag = true;
     }
 
+    ArrangementWriteTask(){
+
+    }
+
     ~ArrangementWriteTask() {
         if (writeBuffer) {
             free(writeBuffer);
@@ -159,8 +165,10 @@ struct ArrangementFilterTask{
     uint64_t length;
     uint64_t classId;
     uint64_t arrangementVersion;
+    uint64_t totalSize = 0;
     bool classEndFlag = false;
     bool finalEndFlag = false;
+    bool startFlag = false;
     CountdownLatch* countdownLatch;
 
     ArrangementFilterTask(uint8_t *buf, uint64_t len, uint64_t cid, uint64_t version) {
@@ -177,6 +185,10 @@ struct ArrangementFilterTask{
 
     ArrangementFilterTask(bool flag){
         finalEndFlag = true;
+    }
+
+    ArrangementFilterTask(){
+
     }
 
     ~ArrangementFilterTask(){
