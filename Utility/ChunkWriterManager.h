@@ -10,6 +10,9 @@
 DEFINE_uint64(WriteBufferLength,
               8388608, "WriteBufferLength");
 
+DEFINE_uint64(ChunkWriterManagerFlushThreshold,
+              8, "WriteBufferLength");
+
 extern std::string ClassFilePath;
 extern std::string VersionFilePath;
 
@@ -40,11 +43,13 @@ public:
     }
 
     int writeClass(uint64_t classId, uint8_t *header, uint64_t headerLen, uint8_t *buffer, uint64_t bufferLen) {
+
         assert(classId >= startClass);
         assert(classId <= endClass);
 
         auto iter = writeBufferMap.find(classId);
         assert(iter != writeBufferMap.end());
+
         if ((headerLen + bufferLen) > iter->second.available) {
             classFlush(classId);
         }
@@ -54,6 +59,7 @@ public:
         writePoint += headerLen;
         memcpy(writePoint, buffer, bufferLen);
         iter->second.available -= bufferLen;
+
         return 0;
     }
 
@@ -79,6 +85,12 @@ private:
             uint64_t flushLength = bufferIter->second.totalLength - bufferIter->second.available;
             fdIter->second->write((uint8_t *) bufferIter->second.buffer, flushLength);
             bufferIter->second.available = bufferIter->second.totalLength;
+            if(syncCounterMap[classId] >= FLAGS_ChunkWriterManagerFlushThreshold){
+                fdIter->second->fdatasync();
+                syncCounterMap[classId] = 0;
+            }else{
+                syncCounterMap[classId]++;
+            }
             return 0;
         } else {
             return -1;
@@ -88,6 +100,7 @@ private:
     uint64_t currentVersion;
     std::unordered_map<uint64_t, FileOperator *> fdMap;
     std::unordered_map <uint64_t, WriteBuffer> writeBufferMap;
+    std::unordered_map<uint64_t, uint64_t> syncCounterMap;
     uint64_t startClass;
     uint64_t endClass;
     char pathBuffer[1024];

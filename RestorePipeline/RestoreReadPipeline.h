@@ -85,7 +85,7 @@ private:
     int readFromVersionFile(uint64_t versionId, uint64_t restoreVersion) {
         sprintf(filePath, VersionFilePath.data(), versionId);
         FileOperator versionReader(filePath, FileOpenType::Read);
-        int versionFileFD = versionReader.getFd();
+        FILE* versionFileFD = versionReader.getFP();
 
         VersionFileHeader* versionFileHeader;
 
@@ -94,7 +94,7 @@ private:
             uint8_t *readBuffer = (uint8_t *) malloc(FLAGS_RestoreReadBufferLength);
             uint64_t bytesToRead = FLAGS_RestoreReadBufferLength;
             gettimeofday(&rt0, NULL);
-            uint64_t bytesFinallyRead = read(versionFileFD, readBuffer, bytesToRead);
+            uint64_t bytesFinallyRead = fread(readBuffer, 1, bytesToRead, versionFileFD);
             gettimeofday(&rt1, NULL);
             readDuration += (rt1.tv_sec-rt0.tv_sec)*1000000 + rt1.tv_usec - rt0.tv_usec;
             versionFileHeader = (VersionFileHeader*)readBuffer;
@@ -124,7 +124,7 @@ private:
             uint64_t bytesToRead =
                     leftLength > FLAGS_RestoreReadBufferLength ? FLAGS_RestoreReadBufferLength : leftLength;
             gettimeofday(&rt0, NULL);
-            uint64_t bytesFinallyRead = read(versionFileFD, readBuffer, bytesToRead);
+            uint64_t bytesFinallyRead = fread(readBuffer, 1, bytesToRead, versionFileFD);
             gettimeofday(&rt1, NULL);
             readDuration += (rt1.tv_sec-rt0.tv_sec)*1000000 + rt1.tv_usec - rt0.tv_usec;
             leftLength -= bytesFinallyRead;

@@ -77,6 +77,7 @@ private:
                     sprintf(buffer, LogicFilePath.c_str(), writeTask.fileID);
                     logicFileOperator = new FileOperator(buffer, FileOpenType::Write);
                     bufferedFileWriter = new BufferedFileWriter(logicFileOperator, FLAGS_RecipeFlushBufferSize);
+                    printf("start write\n");
                 }
                 blockHeader = {
                         writeTask.sha1Fp,
@@ -106,15 +107,16 @@ private:
 
                 if (writeTask.countdownLatch) {
                     printf("WritePipeline finish\n");
-                    delete bufferedFileWriter;
-                    logicFileOperator->fdatasync();
+                    //delete bufferedFileWriter;
                     delete logicFileOperator;
                     logicFileOperator = nullptr;
-                    writeTask.countdownLatch->countDown();
-                    free(writeTask.buffer);
-
                     delete chunkWriterManager;
                     chunkWriterManager = nullptr;
+                    gettimeofday(&t1, NULL);
+                    duration += (t1.tv_sec - t0.tv_sec) * 1000000 + t1.tv_usec - t0.tv_usec;
+
+                    writeTask.countdownLatch->countDown();
+                    free(writeTask.buffer);
                 }
 
             }
