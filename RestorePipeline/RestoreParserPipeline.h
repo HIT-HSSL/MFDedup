@@ -31,6 +31,7 @@ public:
     }
 
     ~RestoreParserPipeline() {
+        printf("restore parser duration :%lu\n", duration);
         runningFlag = false;
         condition.notifyAll();
         worker->join();
@@ -62,6 +63,8 @@ private:
 
         uint8_t *temp = (uint8_t *) malloc(FLAGS_RestoreReadBufferLength);
 
+        struct timeval t0, t1;
+
         while (likely(runningFlag)) {
             {
                 MutexLockGuard mutexLockGuard(mutexLock);
@@ -75,10 +78,14 @@ private:
                 taskList.pop_front();
             }
 
+            gettimeofday(&t0, NULL);
+
             if (unlikely(restoreParseTask->endFlag)) {
                 delete restoreParseTask;
                 RestoreWriteTask *restoreWriteTask = new RestoreWriteTask(true);
                 GlobalRestoreWritePipelinePtr->addTask(restoreWriteTask);
+                gettimeofday(&t1, NULL);
+                duration += (t1.tv_sec-t0.tv_sec)*1000000 + t1.tv_usec - t0.tv_usec;
                 break;
             }
 
@@ -125,6 +132,8 @@ private:
             }
 
             delete restoreParseTask;
+            gettimeofday(&t1, NULL);
+            duration += (t1.tv_sec-t0.tv_sec)*1000000 + t1.tv_usec - t0.tv_usec;
         }
     }
 
@@ -138,6 +147,8 @@ private:
     uint64_t totalLength = 0;
 
     std::unordered_map<SHA1FP, std::list<uint64_t>, TupleHasher, TupleEqualer> restoreMap;
+
+    uint64_t duration = 0;
 };
 
 static RestoreParserPipeline *GlobalRestoreParserPipelinePtr;

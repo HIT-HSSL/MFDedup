@@ -23,6 +23,7 @@ public:
     }
 
     ~RestoreWritePipeline() {
+        printf("restore write duration :%lu\n", duration);
         runningFlag = false;
         condition.notifyAll();
         worker->join();
@@ -44,6 +45,8 @@ private:
         RestoreWriteTask *restoreWriteTask;
         int fd = fileOperator->getFd();
 
+        struct timeval t0, t1;
+
         while (likely(runningFlag)) {
             {
                 MutexLockGuard mutexLockGuard(mutexLock);
@@ -56,17 +59,22 @@ private:
                 restoreWriteTask = taskList.front();
                 taskList.pop_front();
             }
+            gettimeofday(&t0, NULL);
 
             if (unlikely(restoreWriteTask->endFlag)) {
                 delete restoreWriteTask;
                 fileOperator->fdatasync();
                 countdownLatch->countDown();
+                gettimeofday(&t1, NULL);
+                duration += (t1.tv_sec-t0.tv_sec)*1000000 + t1.tv_usec - t0.tv_usec;
                 break;
             }
 
             pwrite(fd, restoreWriteTask->buffer, restoreWriteTask->length, restoreWriteTask->pos);
 
             delete restoreWriteTask;
+            gettimeofday(&t1, NULL);
+            duration += (t1.tv_sec-t0.tv_sec)*1000000 + t1.tv_usec - t0.tv_usec;
         }
     }
 
@@ -81,6 +89,8 @@ private:
     FileOperator* fileOperator = nullptr;
 
     uint64_t totalSize = 0;
+
+    uint64_t duration = 0;
 };
 
 static RestoreWritePipeline *GlobalRestoreWritePipelinePtr;

@@ -27,6 +27,7 @@ public:
     }
 
     ~RestoreReadPipeline() {
+        printf("restore read duration :%lu\n", duration);
         runningFlag = false;
         condition.notifyAll();
         worker->join();
@@ -35,6 +36,8 @@ public:
 private:
     void restoreReadCallback() {
         RestoreTask *restoreTask;
+
+        struct timeval t0, t1;
 
         while (likely(runningFlag)) {
             {
@@ -48,6 +51,7 @@ private:
                 restoreTask = taskList.front();
                 taskList.pop_front();
             }
+            gettimeofday(&t0, NULL);
 
             std::vector<uint64_t> classList, versionList;
             for (uint64_t i = restoreTask->targetVersion; i <= restoreTask->maxVersion - 1; i++) {
@@ -70,6 +74,9 @@ private:
 
             RestoreParseTask *restoreParseTask = new RestoreParseTask(true);
             GlobalRestoreParserPipelinePtr->addTask(restoreParseTask);
+
+            gettimeofday(&t1, NULL);
+            duration += (t1.tv_sec-t0.tv_sec)*1000000 + t1.tv_usec - t0.tv_usec;
 
         }
     }
@@ -184,6 +191,8 @@ private:
     std::list<RestoreTask *> taskList;
     MutexLock mutexLock;
     Condition condition;
+
+    uint64_t duration = 0;
 };
 
 static RestoreReadPipeline *GlobalRestoreReadPipelinePtr;

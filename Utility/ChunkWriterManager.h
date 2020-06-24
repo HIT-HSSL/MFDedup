@@ -61,6 +61,8 @@ public:
     ~ChunkWriterManager() {
         for (auto entry : fdMap) {
             classFlush(entry.first);
+        }
+        for (auto entry : fdMap){
             entry.second->fdatasync();
             delete entry.second;
         }
