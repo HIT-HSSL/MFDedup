@@ -70,7 +70,6 @@ int do_delete(){
     printf("Delete Task..\n");
     Eliminator eliminator;
     eliminator.run(TotalVersion);
-    GlobalMetadataManagerPtr->updateMetaTableAfterDeletion();
     TotalVersion--;
 }
 
@@ -157,7 +156,6 @@ int main(int argc, char **argv) {
                 printf("Delete Task..\n");
                 Eliminator eliminator;
                 eliminator.run(TotalVersion);
-                GlobalMetadataManagerPtr->updateMetaTableAfterDeletion();
                 TotalVersion--;
                 printf("----------------------------------------------\n");
             }else{
@@ -262,7 +260,6 @@ int main(int argc, char **argv) {
                 printf("Delete Task..\n");
                 Eliminator eliminator;
                 eliminator.run(TotalVersion);
-                GlobalMetadataManagerPtr->updateMetaTableAfterDeletion();
                 TotalVersion--;
             }else{
                 printf("Only %lu versions exist, and the retention is %lu, deletion is not required.\n", TotalVersion, RetentionTime);

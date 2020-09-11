@@ -49,7 +49,9 @@ struct FPIndex{
         fpTable.clear();
         fpTable.swap(alter.fpTable);
         duplicateSize = alter.duplicateSize;
-        totalSize = alter.duplicateSize;
+        totalSize = alter.totalSize;
+        alter.duplicateSize = 0;
+        alter.totalSize = 0;
     }
 };
 
@@ -121,26 +123,6 @@ public:
 
 
         return 0;
-    }
-
-    int updateMetaTableAfterDeletion(){
-//        MutexLockGuard mutexLockGuard(tableLock);
-//
-//
-//        uint64_t startClass = (TotalVersion - 1) * TotalVersion / 2 + 1;
-//        uint64_t endClass = (TotalVersion + 1) * TotalVersion / 2;
-//
-//        std::unordered_map<SHA1FP, uint64_t, TupleHasher, TupleEqualer> alterTable;
-//
-//        for(auto item : earlierTable){
-//            assert(item.second-startClass <= endClass-startClass);
-//            if(item.second == startClass){
-//                alterTable[item.first] = item.second - (TotalVersion-1);
-//            }else{
-//                alterTable[item.first] = item.second - (TotalVersion);
-//            }
-//        }
-//        earlierTable.swap(alterTable);
     }
 
     int save(){

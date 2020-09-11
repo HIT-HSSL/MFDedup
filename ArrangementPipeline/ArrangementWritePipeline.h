@@ -119,10 +119,10 @@ private:
                 free(length);
                 currentVersion = -1;
 
+                GlobalMetadataManagerPtr->tableRolling();
                 arrangementWriteTask->countdownLatch->countDown();
                 delete arrangementWriteTask;
                 printf("ArrangementWritePipeline finish\n");
-                GlobalMetadataManagerPtr->tableRolling();
                 continue;
             }
 
