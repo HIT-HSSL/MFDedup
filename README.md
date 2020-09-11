@@ -8,22 +8,26 @@ Variant B - inline deduplication and offline arrangement
 + openssl
 + glib
 
+### Build
+```
+mkdir build
+cd build
+cmake ..
+make -j 4
+```
+
 ### Usage:
 
-+ Write a series of versions into the system
++ Backup a new workload into the system, which includes backup workflow and arrangement workflow.
 ```
-MFDedup --task=write --Path=[a file contains a list of files to write]
+./MFDedup --ConfigFile=[config file] --task=write --InputFile=[backup workload]
 ```
-exmaple/filelist is an example for file list. There should not exist any empty line in the file list.
+exmaple/config.toml is an example for config file.
 + Restore a version of from the system
 ```
-MFDedup --task=restore --RestorePath=[where the restored file is to locate] --RestoreRecipe=[which version to restore(1 ~ no. of the last version)] --MaxVersion=[how many versions exist in the system]
+./MFDedup --ConfigFile=config.toml --task=restore --RestorePath=[where the restored file is to locate] --RestoreRecipe=[which version to restore(1 ~ no. of the last retained version)]
 ```
-+ Eliminate the earliest version in the system
-```
-MFDedup --task=eliminate --MaxVersion=[how many versions exist in the system]
-```
-+ Check status of the system
++ Check status of the system (Not implement)
 ```
 MFDedup --task=status
 ```
@@ -31,10 +35,5 @@ MFDedup --task=status
 ```
 MFDedup --help
 ```
-
-
-use ```--ClassFilePath=[class file path]``` to specify the class files path, default value is ```/data/MFDedupHome/storageFiles/%lu```  
-use ```--VersionFilePath=[version file path]``` to specify the version files path, default value is ```/data/MFDedupHome/storageFiles/%lu```  
-use ```--LogicFilePath=[logic file path]``` to specify the logic files (recipes) path, default value is ```/data/MFDedupHome/logicFiles/%lu```
 
 
