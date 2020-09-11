@@ -18,7 +18,7 @@ make -j 4
 
 ### Usage:
 
-+ Backup a new workload into the system, which includes backup workflow and arrangement workflow.
++ Backup a new workload into the system, which includes backup workflow, arrangement workflow, and deletion workflow when exceeding the retaining limit.
 ```
 ./MFDedup --ConfigFile=[config file] --task=write --InputFile=[backup workload]
 ```
