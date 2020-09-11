@@ -1,5 +1,5 @@
 # MFDedup
-A Management Friendly Deduplication Prototype System for Backup
+A Management Friendly Deduplication Prototype System for Backup    
 Variant B - inline deduplication and offline arrangement
 
 ### Requirement:

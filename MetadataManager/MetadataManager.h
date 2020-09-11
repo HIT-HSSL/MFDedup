@@ -10,6 +10,7 @@
 
 #include <map>
 #include "../Utility/StorageTask.h"
+#include <unordered_set>
 #include <unordered_map>
 
 uint64_t shadMask = 0x7;
@@ -33,10 +34,23 @@ struct TupleEqualer {
 };
 
 enum class LookupResult {
-    New,
-    InnerDedup,
-    NeighborDedup,
-    IntervalDedup,
+    Unique,
+    InternalDedup,
+    AdjacentDedup,
+    SkipDedup,
+};
+
+struct FPIndex{
+    uint64_t duplicateSize = 0;
+    uint64_t totalSize = 0;
+    std::unordered_set<SHA1FP, TupleHasher, TupleEqualer> fpTable;
+
+    void rolling(FPIndex& alter){
+        fpTable.clear();
+        fpTable.swap(alter.fpTable);
+        duplicateSize = alter.duplicateSize;
+        totalSize = alter.duplicateSize;
+    }
 };
 
 class MetadataManager {
@@ -45,82 +59,87 @@ public:
 
     }
 
-    LookupResult dedupLookup(const SHA1FP &sha1Fp, uint64_t currentVersion, uint64_t *oc) {
+    LookupResult dedupLookup(const SHA1FP &sha1Fp, uint64_t chunkSize) {
         MutexLockGuard mutexLockGuard(tableLock);
-        auto innerDedupIter = laterTable.find(sha1Fp);
-        if (innerDedupIter != laterTable.end()) {
-            return LookupResult::InnerDedup;
+        laterTable.totalSize += chunkSize;
+        auto innerDedupIter = laterTable.fpTable.find(sha1Fp);
+        if (innerDedupIter != laterTable.fpTable.end()) {
+            return LookupResult::InternalDedup;
         }
 
-        auto neighborDedupIter = earlierTable.find(sha1Fp);
-        if (neighborDedupIter == earlierTable.end()) {
-            return LookupResult::New;
+        auto neighborDedupIter = earlierTable.fpTable.find(sha1Fp);
+        if (neighborDedupIter == earlierTable.fpTable.end()) {
+            return LookupResult::Unique;
         } else {
-            *oc = neighborDedupIter->second;
-            return LookupResult::NeighborDedup;
+            laterTable.duplicateSize += chunkSize;
+            return LookupResult::AdjacentDedup;
         }
 
+    }
+
+    uint64_t arrangementGetTruncateSize(){
+        return earlierTable.totalSize - laterTable.duplicateSize;
     }
 
     int arrangementLookup(const SHA1FP &sha1Fp) {
         MutexLockGuard mutexLockGuard(tableLock);
 
-        auto r = earlierTable.find(sha1Fp);
-        if (r == earlierTable.end()) {
-            return -1;
-        } else {
+        auto r = laterTable.fpTable.find(sha1Fp);
+        if (r == laterTable.fpTable.end()) {
             return 0;
+        } else {
+            return 1;
         }
     }
 
-    int newChunkAddRecord(const SHA1FP &sha1Fp, uint64_t currentVersion, uint64_t classId) {
+    int newChunkAddRecord(const SHA1FP &sha1Fp) {
         MutexLockGuard mutexLockGuard(tableLock);
 
-        auto pp = laterTable.find(sha1Fp);
-        assert(pp == laterTable.end());
+        auto pp = laterTable.fpTable.find(sha1Fp);
+        assert(pp == laterTable.fpTable.end());
 
-        laterTable[sha1Fp] = classId;
+        laterTable.fpTable.insert(sha1Fp);
+
         return 0;
     }
 
-    int neighborAddRecord(const SHA1FP &sha1Fp, uint64_t currentVersion, uint64_t classId) {
+    int neighborAddRecord(const SHA1FP &sha1Fp) {
         MutexLockGuard mutexLockGuard(tableLock);
 
-        auto pp = laterTable.find(sha1Fp);
-        assert(pp == laterTable.end());
+        auto pp = laterTable.fpTable.find(sha1Fp);
+        assert(pp == laterTable.fpTable.end());
 
-        laterTable[sha1Fp] = classId;
+        laterTable.fpTable.insert(sha1Fp);
         return 0;
     }
 
     int tableRolling() {
         MutexLockGuard mutexLockGuard(tableLock);
 
-        earlierTable.clear();
-        earlierTable.swap(laterTable);
+        earlierTable.rolling(laterTable);
 
 
         return 0;
     }
 
     int updateMetaTableAfterDeletion(){
-        MutexLockGuard mutexLockGuard(tableLock);
-
-
-        uint64_t startClass = (TotalVersion - 1) * TotalVersion / 2 + 1;
-        uint64_t endClass = (TotalVersion + 1) * TotalVersion / 2;
-
-        std::unordered_map<SHA1FP, uint64_t, TupleHasher, TupleEqualer> alterTable;
-
-        for(auto item : earlierTable){
-            assert(item.second-startClass <= endClass-startClass);
-            if(item.second == startClass){
-                alterTable[item.first] = item.second - (TotalVersion-1);
-            }else{
-                alterTable[item.first] = item.second - (TotalVersion);
-            }
-        }
-        earlierTable.swap(alterTable);
+//        MutexLockGuard mutexLockGuard(tableLock);
+//
+//
+//        uint64_t startClass = (TotalVersion - 1) * TotalVersion / 2 + 1;
+//        uint64_t endClass = (TotalVersion + 1) * TotalVersion / 2;
+//
+//        std::unordered_map<SHA1FP, uint64_t, TupleHasher, TupleEqualer> alterTable;
+//
+//        for(auto item : earlierTable){
+//            assert(item.second-startClass <= endClass-startClass);
+//            if(item.second == startClass){
+//                alterTable[item.first] = item.second - (TotalVersion-1);
+//            }else{
+//                alterTable[item.first] = item.second - (TotalVersion);
+//            }
+//        }
+//        earlierTable.swap(alterTable);
     }
 
     int save(){
@@ -128,18 +147,18 @@ public:
         printf("Saving index..\n");
         uint64_t size;
         FileOperator fileOperator((char*)KVPath.data(), FileOpenType::Write);
-        size = earlierTable.size();
+        fileOperator.write((uint8_t*)&earlierTable, sizeof(uint64_t)*2);
+        size = earlierTable.fpTable.size();
         fileOperator.write((uint8_t*)&size, sizeof(uint64_t));
-        for(auto item : earlierTable){
-            fileOperator.write((uint8_t*)&item.first, sizeof(SHA1FP));
-            fileOperator.write((uint8_t*)&item.second, sizeof(uint64_t));
+        for(auto item : earlierTable.fpTable){
+            fileOperator.write((uint8_t*)&item, sizeof(SHA1FP));
         }
         printf("earlier table saves %lu items\n", size);
-        size = laterTable.size();
+        fileOperator.write((uint8_t*)&laterTable, sizeof(uint64_t)*2);
+        size = laterTable.fpTable.size();
         fileOperator.write((uint8_t*)&size, sizeof(uint64_t));
-        for(auto item : laterTable){
-            fileOperator.write((uint8_t*)&item.first, sizeof(SHA1FP));
-            fileOperator.write((uint8_t*)&item.second, sizeof(uint64_t));
+        for(auto item : laterTable.fpTable){
+            fileOperator.write((uint8_t*)&item, sizeof(SHA1FP));
         }
         printf("later table saves %lu items\n", size);
         fileOperator.fdatasync();
@@ -153,29 +172,29 @@ public:
         SHA1FP tempFP;
         uint64_t tempCID;
         FileOperator fileOperator((char*)KVPath.data(), FileOpenType::Read);
-        assert(earlierTable.size() == 0);
-        assert(laterTable.size() == 0);
+        assert(earlierTable.fpTable.size() == 0);
+        assert(laterTable.fpTable.size() == 0);
 
+        fileOperator.read((uint8_t*)&earlierTable, sizeof(uint64_t)*2);
         fileOperator.read((uint8_t*)&sizeE, sizeof(uint64_t));
         for(uint64_t i = 0; i<sizeE; i++){
             fileOperator.read((uint8_t*)&tempFP, sizeof(SHA1FP));
-            fileOperator.read((uint8_t*)&tempCID, sizeof(uint64_t));
-            earlierTable[tempFP] = tempCID;
+            earlierTable.fpTable.insert(tempFP);
         }
         printf("earlier table load %lu items\n", sizeE);
 
+        fileOperator.read((uint8_t*)&earlierTable, sizeof(uint64_t)*2);
         fileOperator.read((uint8_t*)&sizeL, sizeof(uint64_t));
         for(uint64_t i = 0; i<sizeL; i++){
             fileOperator.read((uint8_t*)&tempFP, sizeof(SHA1FP));
-            fileOperator.read((uint8_t*)&tempCID, sizeof(uint64_t));
-            laterTable[tempFP] = tempCID;
+            laterTable.fpTable.insert(tempFP);
         }
         printf("later table load %lu items\n", sizeL);
     }
 
 private:
-    std::unordered_map<SHA1FP, uint64_t, TupleHasher, TupleEqualer> earlierTable;
-    std::unordered_map<SHA1FP, uint64_t, TupleHasher, TupleEqualer> laterTable;
+    FPIndex earlierTable;
+    FPIndex laterTable;
 
     MutexLock tableLock;
 };

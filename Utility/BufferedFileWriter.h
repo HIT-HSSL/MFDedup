@@ -25,8 +25,8 @@ public:
     }
 
     ~BufferedFileWriter() {
+        counter += syncThreshold;
         flush();
-        fileOperator->fdatasync();
         free(writeBuffer);
     }
 

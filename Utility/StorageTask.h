@@ -122,27 +122,26 @@ struct RestoreWriteTask {
 struct ArrangementWriteTask{
     uint8_t* writeBuffer = nullptr;
     uint64_t length;
-    uint64_t previousClassId;
-    uint64_t currentClassId;
+    uint64_t beforeClassId;
     uint64_t arrangementVersion = -1;
-    uint64_t totalSize = 0;
+    bool isArchived = 0;
     bool classEndFlag = false;
     bool finalEndFlag = false;
     bool startFlag = false;
     CountdownLatch* countdownLatch;
 
-    ArrangementWriteTask(uint8_t *buf, uint64_t len, uint64_t pcid, uint64_t ccid, uint64_t version) {
+    ArrangementWriteTask(uint8_t *buf, uint64_t len, uint64_t pcid, uint64_t version, bool isArch) {
         writeBuffer = (uint8_t *) malloc(len);
         memcpy(writeBuffer, buf, len);
         length = len;
-        previousClassId = pcid;
-        currentClassId = ccid;
+        beforeClassId = pcid;
         arrangementVersion = version;
+        isArchived = isArch;
     }
 
     ArrangementWriteTask(bool flag, uint64_t pcid) {
         classEndFlag = true;
-        previousClassId = pcid;
+        beforeClassId = pcid;
     }
 
     ArrangementWriteTask(bool flag){
@@ -165,7 +164,6 @@ struct ArrangementFilterTask{
     uint64_t length;
     uint64_t classId;
     uint64_t arrangementVersion;
-    uint64_t totalSize = 0;
     bool classEndFlag = false;
     bool finalEndFlag = false;
     bool startFlag = false;

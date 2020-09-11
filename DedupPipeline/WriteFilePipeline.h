@@ -97,9 +97,9 @@ private:
                         break;
                     case 2:
                         bufferedFileWriter->write((uint8_t * ) & blockHeader, sizeof(BlockHeader));
-                        chunkWriterManager->writeClass(writeTask.oldClass + TotalVersion - 1,
-                                                       (uint8_t * ) & blockHeader, sizeof(BlockHeader),
-                                                       writeTask.buffer + writeTask.pos, writeTask.bufferLength);
+//                        chunkWriterManager->writeClass(writeTask.oldClass + TotalVersion - 1,
+//                                                       (uint8_t * ) & blockHeader, sizeof(BlockHeader),
+//                                                       writeTask.buffer + writeTask.pos, writeTask.bufferLength);
 //                        logicFileOperator->write((uint8_t * ) & blockHeader, sizeof(BlockHeader));
                         break;
 

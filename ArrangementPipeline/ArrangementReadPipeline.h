@@ -59,16 +59,8 @@ private:
                 uint64_t startClass = (arrangementVersion - 1) * (arrangementVersion) / 2 + 1;
                 uint64_t endClass = arrangementVersion * (arrangementVersion + 1) / 2;
 
-                uint64_t beforeSize = 0, activeSize = 0;
-                for(int i=startClass; i<=endClass; i++){
-                    beforeSize +=  getClassFileSize(i);
-                    activeSize += getClassFileSize(i + arrangementVersion);
-                }
-                beforeSize += getAppendClassFileSize(startClass);
-
                 ArrangementFilterTask* startTask = new ArrangementFilterTask();
                 startTask->startFlag = true;
-                startTask->totalSize = beforeSize - activeSize;
                 startTask->arrangementVersion = arrangementVersion;
                 GlobalArrangementFilterPipelinePtr->addTask(startTask);
 

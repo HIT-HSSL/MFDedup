@@ -85,8 +85,7 @@ private:
                 writeTask.index = dedupTask.index;
 
                 uint64_t oldClass;
-                LookupResult lookupResult = GlobalMetadataManagerPtr->dedupLookup(dedupTask.fp, TotalVersion,
-                                                                                  &oldClass);
+                LookupResult lookupResult = GlobalMetadataManagerPtr->dedupLookup(dedupTask.fp, dedupTask.length);
                 chunkCounter[(int) lookupResult]++;
 
                 writeTask.type = (int) lookupResult;
@@ -99,18 +98,14 @@ private:
                 totalLength += dedupTask.length;
 
                 switch (lookupResult) {
-                    case LookupResult::New:
-                        GlobalMetadataManagerPtr->newChunkAddRecord(writeTask.sha1Fp,
-                                TotalVersion,
-                                (TotalVersion + 1) * TotalVersion / 2);
+                    case LookupResult::Unique:
+                        GlobalMetadataManagerPtr->newChunkAddRecord(writeTask.sha1Fp);
                         afterDedupLength += dedupTask.length;
                         break;
-                    case LookupResult::InnerDedup:
+                    case LookupResult::InternalDedup:
                         break;
-                    case LookupResult::NeighborDedup:
-                        GlobalMetadataManagerPtr->neighborAddRecord(writeTask.sha1Fp,
-                                TotalVersion,
-                                writeTask.oldClass + TotalVersion - 1);
+                    case LookupResult::AdjacentDedup:
+                        GlobalMetadataManagerPtr->neighborAddRecord(writeTask.sha1Fp);
                         break;
                 }
 
@@ -121,7 +116,7 @@ private:
                     printf("DedupPipeline finish\n");
                     writeTask.countdownLatch = dedupTask.countdownLatch;
                     dedupTask.countdownLatch->countDown();
-                    GlobalMetadataManagerPtr->tableRolling();
+                    //GlobalMetadataManagerPtr->tableRolling();
                     newVersionFlag = true;
 
                     GlobalWriteFilePipelinePtr->addTask(writeTask);

@@ -61,7 +61,6 @@ private:
             if(unlikely(arrangementFilterTask->startFlag)){
                 ArrangementWriteTask* arrangementWriteTask = new ArrangementWriteTask();
                 arrangementWriteTask->startFlag = true;
-                arrangementWriteTask->totalSize = arrangementFilterTask->totalSize;
                 arrangementWriteTask->arrangementVersion = arrangementFilterTask->arrangementVersion;
                 GlobalArrangementWritePipelinePtr->addTask(arrangementWriteTask);
                 delete arrangementFilterTask;
@@ -115,22 +114,22 @@ private:
                 }
 
                 int r = GlobalMetadataManagerPtr->arrangementLookup(blockHeader->fp);
-                if(r){
+                if(!r){
                     ArrangementWriteTask* arrangementWriteTask = new ArrangementWriteTask(
                             (uint8_t*)blockHeader,
                             blockHeader->length + sizeof(BlockHeader),
                             arrangementFilterTask->classId,
-                            arrangementFilterTask->classId,
-                            arrangementFilterTask->arrangementVersion);
+                            arrangementFilterTask->arrangementVersion,
+                            true);
                     GlobalArrangementWritePipelinePtr->addTask(arrangementWriteTask);
                 }else{
-//                    ArrangementWriteTask* arrangementWriteTask = new ArrangementWriteTask(
-//                            (uint8_t*)blockHeader,
-//                            blockHeader->length + sizeof(BlockHeader),
-//                            arrangementFilterTask->classId,
-//                            arrangementFilterTask->classId + arrangementFilterTask->arrangementVersion,
-//                            arrangementFilterTask->arrangementVersion);
-//                    GlobalArrangementWritePipelinePtr->addTask(arrangementWriteTask);
+                    ArrangementWriteTask* arrangementWriteTask = new ArrangementWriteTask(
+                            (uint8_t*)blockHeader,
+                            blockHeader->length + sizeof(BlockHeader),
+                            arrangementFilterTask->classId,
+                            arrangementFilterTask->arrangementVersion,
+                            false);
+                    GlobalArrangementWritePipelinePtr->addTask(arrangementWriteTask);
                 }
                 readoffset += sizeof(BlockHeader) + blockHeader->length;
                 parseLeft -= sizeof(BlockHeader) + blockHeader->length;
