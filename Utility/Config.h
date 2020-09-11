@@ -23,13 +23,13 @@ public:
     ConfigReader(std::string p){
         auto data = toml::parse(p);
         std::string path = toml::find<std::string>(data, "path");
-        LogicFilePath = path + "/logicFiles/%lu";
-        ClassFilePath = path + "/storageFiles/%lu";
-        VersionFilePath = path + "/storageFiles/v%lu";
+        LogicFilePath = path + "/logicFiles/recipe%lu";
+        ClassFilePath = path + "/storageFiles/Category%lu";
+        VersionFilePath = path + "/storageFiles/Volume%lu";
         ManifestPath = path + "/manifest";
         KVPath = path + "kvstore";
         HomePath = path;
-        ClassFileAppendPath = path + "/storageFiles/%lu_append";
+        ClassFileAppendPath = path + "/storageFiles/Category%lu_append";
         int64_t rt = toml::find<int64_t>(data, "retention");
         RetentionTime = rt;
         printf("-----------------------Configure-----------------------\n");

@@ -277,7 +277,7 @@ int main(int argc, char **argv) {
 
         printf("==============================================\n");
         printf("writing duration:%lu, arrange duration:%lu\n", dedupDuration, arrDuration);
-        printf("Total deduplication duration:%fs, Total Size:%lu, Speed:%fMB/s\n", dedupDuration, totalSize,
+        printf("Total deduplication duration:%lu us, Total Size:%lu, Speed:%fMB/s\n", dedupDuration, totalSize,
                (float) totalSize / dedupDuration);
         GlobalDeduplicationPipelinePtr->getStatistics();
         printf("done\n");

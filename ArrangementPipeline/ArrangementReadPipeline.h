@@ -38,6 +38,7 @@ private:
 
     void arrangementReadCallback() {
         ArrangementTask *arrangementTask;
+        readAmount = 0;
 
         while (likely(runningFlag)) {
             {
@@ -72,7 +73,7 @@ private:
                 ArrangementFilterTask* arrangementFilterTask = new ArrangementFilterTask(true);
                 arrangementFilterTask->countdownLatch = arrangementTask->countdownLatch;
                 GlobalArrangementFilterPipelinePtr->addTask(arrangementFilterTask);
-                printf("ArrangementReadPipeline finish\n");
+                printf("ArrangementReadPipeline finish, with %lu bytes loaded from %lu categories\n", readAmount, endClass - startClass + 1);
             } else {
                 printf("Do not need arrangement, skip\n");
                 GlobalMetadataManagerPtr->tableRolling();
@@ -88,6 +89,7 @@ private:
         while(1){
             uint8_t* buffer = (uint8_t*)malloc(FLAGS_ArrangementReadBufferLength);
             uint64_t readSize = classFile.read(buffer, FLAGS_ArrangementReadBufferLength);
+            readAmount += readSize;
             if(readSize == 0) {
                 ArrangementFilterTask* arrangementFilterTask = new ArrangementFilterTask(true, classId);
                 GlobalArrangementFilterPipelinePtr->addTask(arrangementFilterTask);
@@ -106,6 +108,7 @@ private:
         while(1){
             uint8_t* buffer = (uint8_t*)malloc(FLAGS_ArrangementReadBufferLength);
             uint64_t readSize = classFile.read(buffer, FLAGS_ArrangementReadBufferLength);
+            readAmount += readSize;
             if(readSize == 0) {
                 free(buffer);
                 break;
@@ -120,6 +123,7 @@ private:
             while(1){
                 uint8_t* buffer = (uint8_t*)malloc(FLAGS_ArrangementReadBufferLength);
                 uint64_t readSize = appendFile.read(buffer, FLAGS_ArrangementReadBufferLength);
+                readAmount += readSize;
                 if(readSize == 0) {
                     free(buffer);
                     break;
@@ -152,6 +156,8 @@ private:
     std::list<ArrangementTask *> taskList;
     MutexLock mutexLock;
     Condition condition;
+
+    uint64_t readAmount = 0;
 };
 
 static ArrangementReadPipeline* GlobalArrangementReadPipelinePtr;
