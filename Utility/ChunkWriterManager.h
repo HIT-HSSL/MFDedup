@@ -18,6 +18,8 @@ DEFINE_uint64(ChunkWriterManagerFlushThreshold,
 extern std::string ClassFilePath;
 extern std::string VersionFilePath;
 
+int WorkerExitMagicNumber = -1;
+
 struct WriteBuffer {
     char *buffer;
     uint64_t totalLength;
@@ -28,79 +30,58 @@ struct WriteBuffer {
 class ChunkWriterManager {
 public:
     ChunkWriterManager(uint64_t currentVersion):runningFlag(true), taskAmount(0), mutexLock(), condition(mutexLock) {
-        startClass = currentVersion * (currentVersion - 1) / 2 + 1;
-        endClass = (currentVersion + 1) * currentVersion / 2;
+        classId = (currentVersion + 1) * currentVersion / 2;
 
-        for (uint64_t i = endClass; i <= endClass; i++) {
-            sprintf(pathBuffer, ClassFilePath.data(), i);
-            FileOperator *fd = new FileOperator(pathBuffer, FileOpenType::Write);
-            fdMap[i] = fd;
-            WriteBuffer writeBuffer = {
-                    (char *) malloc(FLAGS_WriteBufferLength),
-                    FLAGS_WriteBufferLength,
-                    FLAGS_WriteBufferLength,
-            };
-            writeBufferMap[i] = writeBuffer;
-        }
+        sprintf(pathBuffer, ClassFilePath.data(), classId);
+        writer = new FileOperator(pathBuffer, FileOpenType::Write);
+        syncCounter = 0;
+        writeBuffer = {
+                (char *) malloc(FLAGS_WriteBufferLength),
+                FLAGS_WriteBufferLength,
+                FLAGS_WriteBufferLength,
+        };
 
         syncWorker = new std::thread(std::bind(&ChunkWriterManager::ChunkWriterManagerCallback, this));
     }
 
-    int writeClass(uint64_t classId, uint8_t *header, uint64_t headerLen, uint8_t *buffer, uint64_t bufferLen) {
+    int writeClass(uint8_t *header, uint64_t headerLen, uint8_t *buffer, uint64_t bufferLen) {
 
-        assert(classId >= startClass);
-        assert(classId <= endClass);
-
-        auto iter = writeBufferMap.find(classId);
-        assert(iter != writeBufferMap.end());
-
-        if ((headerLen + bufferLen) > iter->second.available) {
-            classFlush(classId);
+        if ((headerLen + bufferLen) > writeBuffer.available) {
+            classFlush();
         }
-        char *writePoint = iter->second.buffer + iter->second.totalLength - iter->second.available;
+        char *writePoint = writeBuffer.buffer + writeBuffer.totalLength - writeBuffer.available;
         memcpy(writePoint, header, headerLen);
-        iter->second.available -= headerLen;
+        writeBuffer.available -= headerLen;
         writePoint += headerLen;
         memcpy(writePoint, buffer, bufferLen);
-        iter->second.available -= bufferLen;
+        writeBuffer.available -= bufferLen;
 
         return 0;
     }
 
 
     ~ChunkWriterManager() {
-        addTask(-1);
+        addTask(WorkerExitMagicNumber);
         syncWorker->join();
-        for (auto entry : fdMap) {
-            classFlush(entry.first);
-        }
-        for (auto entry : fdMap){
-            entry.second->fdatasync();
-            delete entry.second;
-        }
-        for (auto entry : writeBufferMap) {
-            delete entry.second.buffer;
-        }
+        classFlush();
+        writer->fdatasync();
+        delete writer;
+        delete writeBuffer.buffer;
     }
 
 private:
-    int classFlush(uint64_t classId) {
-        auto fdIter = fdMap.find(classId);
-        auto bufferIter = writeBufferMap.find(classId);
-        if (fdIter != fdMap.end() && bufferIter != writeBufferMap.end()) {
-            uint64_t flushLength = bufferIter->second.totalLength - bufferIter->second.available;
-            fdIter->second->write((uint8_t *) bufferIter->second.buffer, flushLength);
-            bufferIter->second.available = bufferIter->second.totalLength;
-            if(syncCounterMap[classId] >= FLAGS_ChunkWriterManagerFlushThreshold){
-                addTask(classId);
-                syncCounterMap[classId] = 0;
-            }else{
-                syncCounterMap[classId]++;
-            }
-            return 0;
-        } else {
-            return -1;
+    int classFlush() {
+        uint64_t flushLength = writeBuffer.totalLength - writeBuffer.available;
+        writer->write((uint8_t *) writeBuffer.buffer, flushLength);
+        writeBuffer.available = writeBuffer.totalLength;
+        if(syncCounter >= FLAGS_ChunkWriterManagerFlushThreshold){
+            addTask(classId);
+            syncCounter = 0;
+        }else{
+            syncCounter++;
         }
+        return 0;
+
     }
 
     int addTask(uint64_t classId) {
@@ -125,20 +106,18 @@ private:
                 taskList.pop_front();
             }
 
-            if(classId == -1){
+            if(classId == WorkerExitMagicNumber){
                 break;
             }
 
-            auto fdIter = fdMap.find(classId);
-            fdIter->second->fdatasync();
+            writer->fdatasync();
         }
     }
 
-    std::unordered_map<uint64_t, FileOperator *> fdMap;
-    std::unordered_map<uint64_t, WriteBuffer> writeBufferMap;
-    std::unordered_map<uint64_t, uint64_t> syncCounterMap;
-    uint64_t startClass;
-    uint64_t endClass;
+    FileOperator * writer = nullptr;
+    WriteBuffer writeBuffer;
+    uint64_t syncCounter = 0;
+    uint64_t classId;
     char pathBuffer[256];
 
     std::thread* syncWorker;

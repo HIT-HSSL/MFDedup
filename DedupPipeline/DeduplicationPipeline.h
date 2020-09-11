@@ -42,7 +42,7 @@ public:
     void getStatistics() {
         printf("Deduplicating Duration : %lu\n", duration);
         printf("new:%lu, iv:%lu, nv:%lu, it:%lu\n", chunkCounter[0], chunkCounter[1], chunkCounter[2], chunkCounter[3]);
-        printf("Total Length : %lu, Unique Length : %lu, Dedup Ratio : %f\n", totalLength, afterDedupLength,
+        printf("Total Length : %lu, Unique Length : %lu, Adjacent duplicates : %lu, Dedup Ratio : %f\n", totalLength, afterDedupLength, adjacentDuplicates,
                (float) totalLength / afterDedupLength);
     }
 
@@ -105,6 +105,7 @@ private:
                     case LookupResult::InternalDedup:
                         break;
                     case LookupResult::AdjacentDedup:
+                        adjacentDuplicates += dedupTask.length;
                         GlobalMetadataManagerPtr->neighborAddRecord(writeTask.sha1Fp);
                         break;
                 }
@@ -143,6 +144,7 @@ private:
 
     uint64_t totalLength = 0;
     uint64_t afterDedupLength = 0;
+    uint64_t adjacentDuplicates = 0;
 
     uint64_t chunkCounter[4] = {0, 0, 0, 0};
 

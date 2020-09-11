@@ -70,7 +70,7 @@ private:
                 currentVersion = arrangementWriteTask->arrangementVersion;
                 classIter = 0;
                 classCounter = 0;
-                baseClassId = currentVersion*(currentVersion-1)/2+1;
+                baseClassId = (currentVersion+1)*(currentVersion)/2+1;
 
                 sprintf(pathBuffer, VersionFilePath.data(), arrangementWriteTask->arrangementVersion);
                 archivedFileOperator = new FileOperator(pathBuffer, FileOpenType::Write);
@@ -94,6 +94,8 @@ private:
                 remove(pathBuffer);
 
                 delete arrangementWriteTask;
+                delete activeFileWriter;
+                delete activeFileOperator;
 
                 if(classIter < currentVersion){
                     sprintf(pathBuffer, ClassFilePath.data(), baseClassId+classIter);

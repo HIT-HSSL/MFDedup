@@ -75,6 +75,7 @@ private:
                 printf("ArrangementReadPipeline finish\n");
             } else {
                 printf("Do not need arrangement, skip\n");
+                GlobalMetadataManagerPtr->tableRolling();
                 arrangementTask->countdownLatch->countDown();
             }
         }

@@ -85,8 +85,7 @@ private:
                 };
                 switch (writeTask.type) {
                     case 0:
-                        chunkWriterManager->writeClass((TotalVersion + 1) * TotalVersion / 2,
-                                                       (uint8_t * ) & blockHeader, sizeof(BlockHeader),
+                        chunkWriterManager->writeClass((uint8_t * ) & blockHeader, sizeof(BlockHeader),
                                                        writeTask.buffer + writeTask.pos, writeTask.bufferLength);
                         bufferedFileWriter->write((uint8_t * ) & blockHeader, sizeof(BlockHeader));
 //                        logicFileOperator->write((uint8_t * ) & blockHeader, sizeof(BlockHeader));

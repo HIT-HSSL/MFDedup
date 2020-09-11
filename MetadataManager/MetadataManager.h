@@ -61,14 +61,15 @@ public:
 
     LookupResult dedupLookup(const SHA1FP &sha1Fp, uint64_t chunkSize) {
         MutexLockGuard mutexLockGuard(tableLock);
-        laterTable.totalSize += chunkSize;
         auto innerDedupIter = laterTable.fpTable.find(sha1Fp);
         if (innerDedupIter != laterTable.fpTable.end()) {
             return LookupResult::InternalDedup;
         }
 
+        laterTable.totalSize += chunkSize;
         auto neighborDedupIter = earlierTable.fpTable.find(sha1Fp);
         if (neighborDedupIter == earlierTable.fpTable.end()) {
+
             return LookupResult::Unique;
         } else {
             laterTable.duplicateSize += chunkSize;
@@ -154,6 +155,7 @@ public:
             fileOperator.write((uint8_t*)&item, sizeof(SHA1FP));
         }
         printf("earlier table saves %lu items\n", size);
+        printf("earlier total size:%lu, duplicate size:%lu\n", earlierTable.totalSize, earlierTable.duplicateSize);
         fileOperator.write((uint8_t*)&laterTable, sizeof(uint64_t)*2);
         size = laterTable.fpTable.size();
         fileOperator.write((uint8_t*)&size, sizeof(uint64_t));
@@ -161,6 +163,7 @@ public:
             fileOperator.write((uint8_t*)&item, sizeof(SHA1FP));
         }
         printf("later table saves %lu items\n", size);
+        printf("later total size:%lu, duplicate size:%lu\n", laterTable.totalSize, laterTable.duplicateSize);
         fileOperator.fdatasync();
     }
 

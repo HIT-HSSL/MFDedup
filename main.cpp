@@ -232,7 +232,7 @@ int main(int argc, char **argv) {
             gettimeofday(&t1, NULL);
             uint64_t singleDedup = (t1.tv_sec - t0.tv_sec) * 1000000 + t1.tv_usec - t0.tv_usec;
             dedupDuration += singleDedup;
-            printf("Writing duration:%lu us, Writing Size:%lu, Speed:%fMB/s\n", singleDedup, storageTask.length,
+            printf("Backup duration:%lu us, Backup Size:%lu, Speed:%fMB/s\n", singleDedup, storageTask.length,
                    (float) storageTask.length / singleDedup);
             GlobalReadPipelinePtr->getStatistics();
             GlobalChunkingPipelinePtr->getStatistics();
