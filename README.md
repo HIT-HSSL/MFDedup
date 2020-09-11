@@ -10,10 +10,9 @@ Variant B - inline deduplication and offline arrangement
 
 ### Build
 ```
-mkdir build
 cd build
-cmake ..
-make -j 4
+chmod +x bulid.sh
+./build.sh [Working path, identical to "path" in config file.]
 ```
 
 ### Usage:
