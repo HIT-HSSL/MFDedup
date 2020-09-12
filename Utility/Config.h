@@ -23,7 +23,7 @@ public:
     ConfigReader(std::string p){
         auto data = toml::parse(p);
         std::string path = toml::find<std::string>(data, "path");
-        LogicFilePath = path + "/logicFiles/recipe%lu";
+        LogicFilePath = path + "/logicFiles/Recipe%lu";
         ClassFilePath = path + "/storageFiles/Category%lu";
         VersionFilePath = path + "/storageFiles/Volume%lu";
         ManifestPath = path + "/manifest";

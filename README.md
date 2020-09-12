@@ -11,17 +11,26 @@ Variant B - inline deduplication and offline arrangement
 ### Build
 ```
 cd build
-chmod +x bulid.sh
+cmake ..
+make -j 4
 ./build.sh [Working path, identical to "path" in config file.]
 ```
 
 ### Usage:
 
++ Initializing
+```
+cd build
+chmod +x init.sh
+./init.sh [Working path, identical to "path" in config file.]
+```
+
 + Backup a new workload into the system, which includes backup workflow, arrangement workflow, and deletion workflow when exceeding the retaining limit.
 ```
 ./MFDedup --ConfigFile=[config file] --task=write --InputFile=[backup workload]
 ```
-exmaple/config.toml is an example for config file.
+example/config.toml is an example for config file.
+     
 + Restore a version of from the system
 ```
 ./MFDedup --ConfigFile=config.toml --task=restore --RestorePath=[where the restored file is to locate] --RestoreRecipe=[which version to restore(1 ~ no. of the last retained version)]

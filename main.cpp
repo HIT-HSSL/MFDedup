@@ -5,7 +5,6 @@
 
 #include "DedupPipeline/ReadFilePipeline.h"
 #include "RestorePipeline/RestoreReadPipeline.h"
-//#include "ArrangementPipeline/GCPipieline.h"
 #include "DedupPipeline/Eliminator.h"
 #include "gflags/gflags.h"
 #include "Utility/Config.h"

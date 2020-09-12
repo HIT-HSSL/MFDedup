@@ -1,2 +1,5 @@
+# storage path for MFDedup
 path = "/data/MFDedupHome"
+
+# how many backups to retain. -1 means unlimited.
 retention = 20
