@@ -23,6 +23,8 @@ DEFINE_string(ConfigFile,
         "", "config path");
 DEFINE_string(InputFile,
               "", "input path");
+DEFINE_bool(ApplyArrangement,
+              true, "Whether apply arrangement");
 
 std::string LogicFilePath;
 std::string ClassFilePath;
@@ -33,6 +35,17 @@ std::string ClassFileAppendPath;
 uint64_t TotalVersion;
 uint64_t RetentionTime;
 std::string KVPath;
+
+uint64_t  do_backup(const std::string& path){
+    StorageTask storageTask;
+    CountdownLatch countdownLatch(5); // there are 5 pipelines in the workflow of write.
+    storageTask.path = path;
+    storageTask.countdownLatch = &countdownLatch;
+    storageTask.fileID = TotalVersion;
+    GlobalReadPipelinePtr->addTask(&storageTask);
+    countdownLatch.wait();
+    return storageTask.length;
+}
 
 int do_restore(uint64_t version){
     struct timeval t0, t1;
@@ -61,6 +74,17 @@ int do_restore(uint64_t version){
     delete GlobalRestoreParserPipelinePtr;
     delete GlobalRestoreWritePipelinePtr;
 
+    return 0;
+}
+
+int do_arrangement(){
+    printf("Arrangement Task: Version %lu\n", TotalVersion-1);
+    CountdownLatch arrangementLatch(1);
+    ArrangementTask arrangementTask = {
+            TotalVersion - 1, &arrangementLatch,
+    };
+    GlobalArrangementReadPipelinePtr->addTask(&arrangementTask);
+    arrangementLatch.wait();
 }
 
 int do_delete(){
@@ -87,109 +111,7 @@ int main(int argc, char **argv) {
         TotalVersion = manifest.TotalVersion;
     }
 
-    if (FLAGS_task == batchStr) {
-
-        // pipelines init
-        //------------------------------------------------------
-        GlobalReadPipelinePtr = new ReadFilePipeline();
-        GlobalChunkingPipelinePtr = new ChunkingPipeline();
-        GlobalHashingPipelinePtr = new HashingPipeline();
-        GlobalDeduplicationPipelinePtr = new DeduplicationPipeline();
-        GlobalWriteFilePipelinePtr = new WriteFilePipeline();
-        GlobalMetadataManagerPtr = new MetadataManager();
-        GlobalArrangementReadPipelinePtr = new ArrangementReadPipeline();
-        GlobalArrangementFilterPipelinePtr = new ArrangementFilterPipeline();
-        GlobalArrangementWritePipelinePtr = new ArrangementWritePipeline();
-        //------------------------------------------------------
-
-        uint64_t dedupDuration = 0, arrDuration = 0;
-        uint64_t totalSize = 0;
-        std::ifstream infile;
-        infile.open(FLAGS_BatchFilePath);
-        std::string subPath;
-        std::cout << "Batch path: " << FLAGS_BatchFilePath << std::endl;
-        while (std::getline(infile, subPath)) {
-            TotalVersion++;
-            printf("----------------------------------------------\n");
-            printf("Dedup Task: %s\n", subPath.data());
-            struct timeval t0, t1;
-            gettimeofday(&t0, NULL);
-
-             StorageTask storageTask;
-            CountdownLatch countdownLatch(5); // there are 5 pipelines in the workflow of write.
-            storageTask.path = subPath;
-            storageTask.countdownLatch = &countdownLatch;
-            storageTask.fileID = TotalVersion;
-            GlobalReadPipelinePtr->addTask(&storageTask);
-            countdownLatch.wait();
-
-            gettimeofday(&t1, NULL);
-            uint64_t singleDedup = (t1.tv_sec - t0.tv_sec) * 1000000 + t1.tv_usec - t0.tv_usec;
-            dedupDuration += singleDedup;
-            printf("Task duration:%lu us, Task Size:%lu, Speed:%fMB/s\n", singleDedup, storageTask.length,
-                   (float) storageTask.length / singleDedup);
-            GlobalReadPipelinePtr->getStatistics();
-            GlobalChunkingPipelinePtr->getStatistics();
-            GlobalHashingPipelinePtr->getStatistics();
-            GlobalDeduplicationPipelinePtr->getStatistics();
-            GlobalWriteFilePipelinePtr->getStatistics();
-            totalSize += storageTask.length;
-
-            printf("----------------------------------------------\n");
-            printf("GC Task: Version %lu\n", TotalVersion-1);
-            CountdownLatch arrangementLatch(1);
-            ArrangementTask arrangementTask = {
-                    TotalVersion - 1, &arrangementLatch,
-            };
-            gettimeofday(&t0, NULL);
-            GlobalArrangementReadPipelinePtr->addTask(&arrangementTask);
-            arrangementLatch.wait();
-            gettimeofday(&t1, NULL);
-            uint64_t singleGC = (t1.tv_sec - t0.tv_sec) * 1000000 + t1.tv_usec - t0.tv_usec;
-            arrDuration += singleGC;
-            printf("----------------------------------------------\n");
-
-            if(TotalVersion > RetentionTime){
-                printf("----------------------------------------------\n");
-                printf("%lu versions exist, delete the earliest version\n", TotalVersion);
-                printf("Delete Task..\n");
-                Eliminator eliminator;
-                eliminator.run(TotalVersion);
-                TotalVersion--;
-                printf("----------------------------------------------\n");
-            }else{
-                printf("Only %lu versions exist, and the retention is %lu, deletion is not required.\n", TotalVersion, RetentionTime);
-            }
-        }
-        {
-            manifest.TotalVersion = TotalVersion;
-            ManifestWriter manifestWriter(manifest);
-            GlobalMetadataManagerPtr->save();
-        }
-
-        printf("==============================================\n");
-        printf("writing duration:%lu, arrange duration:%lu\n", dedupDuration, arrDuration);
-        printf("Total deduplication duration:%fs, Total Size:%lu, Speed:%fMB/s\n", dedupDuration, totalSize,
-               (float) totalSize / dedupDuration);
-        GlobalDeduplicationPipelinePtr->getStatistics();
-        printf("done\n");
-        printf("==============================================\n");
-
-        // pipelines release
-        //------------------------------------------------------
-        delete GlobalReadPipelinePtr;
-        delete GlobalChunkingPipelinePtr;
-        delete GlobalHashingPipelinePtr;
-        delete GlobalDeduplicationPipelinePtr;
-        delete GlobalWriteFilePipelinePtr;
-        delete GlobalMetadataManagerPtr;
-        delete GlobalArrangementReadPipelinePtr;
-        delete GlobalArrangementFilterPipelinePtr;
-        delete GlobalArrangementWritePipelinePtr;
-        //------------------------------------------------------
-
-    }
-    else if (FLAGS_task == writeStr) {
+    if (FLAGS_task == writeStr) {
 
         // pipelines init
         //------------------------------------------------------
@@ -208,58 +130,45 @@ int main(int argc, char **argv) {
             GlobalMetadataManagerPtr->load();
 
         uint64_t dedupDuration = 0, arrDuration = 0;
-        uint64_t totalSize = 0;
-        std::string subPath = FLAGS_InputFile;
+        std::string workloadPath = FLAGS_InputFile;
+        uint64_t taskLength = 0;
 
         {
             TotalVersion++;
             printf("-----------------------Backing up-----------------------\n");
-            printf("Dedup Task: %s\n", subPath.data());
+            printf("Dedup Task: %s\n", workloadPath.data());
             struct timeval t0, t1;
             gettimeofday(&t0, NULL);
 
-            StorageTask storageTask;
-            CountdownLatch countdownLatch(5); // there are 5 pipelines in the workflow of write.
-            storageTask.path = subPath;
-            storageTask.countdownLatch = &countdownLatch;
-            storageTask.fileID = TotalVersion;
-            GlobalReadPipelinePtr->addTask(&storageTask);
-            countdownLatch.wait();
+            taskLength = do_backup(workloadPath);
 
             gettimeofday(&t1, NULL);
             uint64_t singleDedup = (t1.tv_sec - t0.tv_sec) * 1000000 + t1.tv_usec - t0.tv_usec;
             dedupDuration += singleDedup;
-            printf("Backup duration:%lu us, Backup Size:%lu, Speed:%fMB/s\n", singleDedup, storageTask.length,
-                   (float) storageTask.length / singleDedup);
+            printf("Backup duration:%lu us, Backup Size:%lu, Speed:%fMB/s\n", singleDedup, taskLength,
+                   (float) taskLength / singleDedup);
             GlobalReadPipelinePtr->getStatistics();
             GlobalChunkingPipelinePtr->getStatistics();
             GlobalHashingPipelinePtr->getStatistics();
             GlobalDeduplicationPipelinePtr->getStatistics();
             GlobalWriteFilePipelinePtr->getStatistics();
-            totalSize += storageTask.length;
 
             printf("----------------------Arrangement------------------------\n");
-            printf("Arrangement Task: Version %lu\n", TotalVersion-1);
-            CountdownLatch arrangementLatch(1);
-            ArrangementTask arrangementTask = {
-                    TotalVersion - 1, &arrangementLatch,
-            };
-            gettimeofday(&t0, NULL);
-            GlobalArrangementReadPipelinePtr->addTask(&arrangementTask);
-            arrangementLatch.wait();
-            gettimeofday(&t1, NULL);
-            uint64_t singleArr = (t1.tv_sec - t0.tv_sec) * 1000000 + t1.tv_usec - t0.tv_usec;
-            arrDuration += singleArr;
-            printf("Arrangement duration : %lu\n", singleArr);
+            if (FLAGS_ApplyArrangement){
+                gettimeofday(&t0, NULL);
+                do_arrangement();
+                gettimeofday(&t1, NULL);
+                uint64_t singleArr = (t1.tv_sec - t0.tv_sec) * 1000000 + t1.tv_usec - t0.tv_usec;
+                arrDuration += singleArr;
+                printf("Arrangement duration : %lu\n", singleArr);
+            }else{
+                printf("Arrangement is disabled by user.\n");
+                manifest.ArrangementFallBehind++;
+            }
 
             printf("------------------------Retention----------------------\n");
             if(TotalVersion > RetentionTime){
-
-                printf("%lu versions exist, delete the earliest version\n", TotalVersion);
-                printf("Delete Task..\n");
-                Eliminator eliminator;
-                eliminator.run(TotalVersion);
-                TotalVersion--;
+                do_delete();
             }else{
                 printf("Only %lu versions exist, and the retention is %lu, deletion is not required.\n", TotalVersion, RetentionTime);
             }
@@ -273,8 +182,8 @@ int main(int argc, char **argv) {
 
         printf("==============================================\n");
         printf("writing duration:%lu, arrange duration:%lu\n", dedupDuration, arrDuration);
-        printf("Total deduplication duration:%lu us, Total Size:%lu, Speed:%fMB/s\n", dedupDuration, totalSize,
-               (float) totalSize / dedupDuration);
+        printf("Total deduplication duration:%lu us, Total Size:%lu, Speed:%fMB/s\n", dedupDuration, taskLength,
+               (float) taskLength / dedupDuration);
         GlobalDeduplicationPipelinePtr->getStatistics();
         printf("done\n");
         printf("==============================================\n");
@@ -306,23 +215,19 @@ int main(int argc, char **argv) {
         }
     }
     else if (FLAGS_task == statusStr) {
-        printf("Not implemented\n");
+        printf("Totally %lu versions stored.\n", manifest.TotalVersion);
+        printf("Arrangement fall  %lu versions behind.\n", manifest.ArrangementFallBehind);
     }
     else {
         printf("=================================================\n");
         printf("Usage: MFDedup [args..]\n");
         printf("1. Write a series of versions into system\n");
-        printf("MFDedup --task=write --Path=[a file contains a list of files to write]\n");
+        printf("./MFDedup --ConfigFile=[config file] --task=write --InputFile=[backup workload]\n");
         printf("2. Restore a version of from the system\n");
-        printf("MFDedup --task=restore --RestorePath=[where the restored file is to locate] --RestoreRecipe=[which version to restore(1 ~ no. of the last version)] --MaxVersion=[How many versions exist in the system]\n");
-        printf("3. Eliminate the earliest version in the system\n");
-        printf("MFDedup --task=eliminate --MaxVersion=[How many versions exist in the system]\n");
-        printf("4. Check status of the system\n");
-        printf("MFDedup --task=status\n");
+        printf("./MFDedup --ConfigFile=config.toml --task=restore --RestorePath=[where the restored file is to locate] --RestoreRecipe=[which version to restore(1 ~ no. of the last retained version)]\n");
+        printf("3. Check status of the system\n");
+        printf("./MFDedup --task=status\n");
         printf("--------------------------------------------------\n");
-        printf("use --ClassFilePath=[class file path] to specify the class files path, default value is /data/MFDedupHome/storageFiles/%%lu\n");
-        printf("use --VersionFilePath=[version file path] to specify the version files path, default value is /data/MFDedupHome/storageFiles/v%%lu\n");
-        printf("use --LogicFilePath=[logic file path] to specify the logic files (recipes) path, default value is /data/MFDedupHome/logicFiles/%%lu\n");
         printf("more information with --help\n");
         printf("=================================================\n");
 
