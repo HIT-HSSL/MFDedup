@@ -55,7 +55,7 @@ private:
 
             uint64_t baseClass = 0;
             std::vector<uint64_t> classList, versionList;
-            if(restoreTask->fallBehind == 0){
+            if(restoreTask->fallBehind == 0 || (restoreTask->maxVersion - restoreTask->fallBehind) >= restoreTask->targetVersion){
                 for (uint64_t i = restoreTask->targetVersion; i <= restoreTask->maxVersion - 1; i++) {
                     versionList.push_back(i);
                     printf("version # %lu is required\n", i);
@@ -75,7 +75,7 @@ private:
                     printf("version # %lu is required\n", i);
                 }
                 baseClass = (restoreTask->maxVersion - 1 - restoreTask->fallBehind) * (restoreTask->maxVersion - restoreTask->fallBehind) / 2 + 1;
-                for (uint64_t i = baseClass; i < baseClass + restoreTask->targetVersion; i++) {
+                for (uint64_t i = baseClass; i < baseClass + restoreTask->targetVersion - restoreTask->fallBehind; i++) {
                     classList.push_back(i);
                     printf("category # %lu is required\n", i);
                 }

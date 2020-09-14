@@ -128,11 +128,14 @@ private:
                 auto iter = restoreMap.find(blockHeader->fp);
                 // if we allow arrangement to fall behind, below assert must be commented.
                 //assert(iter->second.size() > 0);
-                for (auto item : iter->second) {
-                    totalLength += blockHeader->length;
-                    RestoreWriteTask *restoreWriteTask = new RestoreWriteTask(chunkPtr, item, blockHeader->length);
-                    GlobalRestoreWritePipelinePtr->addTask(restoreWriteTask);
+                if(iter != restoreMap.end()){
+                    for (auto item : iter->second) {
+                        totalLength += blockHeader->length;
+                        RestoreWriteTask *restoreWriteTask = new RestoreWriteTask(chunkPtr, item, blockHeader->length);
+                        GlobalRestoreWritePipelinePtr->addTask(restoreWriteTask);
+                    }
                 }
+
                 readoffset += sizeof(BlockHeader) + blockHeader->length;
                 parseLeft -= sizeof(BlockHeader) + blockHeader->length;
             }
