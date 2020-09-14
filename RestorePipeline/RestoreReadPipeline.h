@@ -53,17 +53,41 @@ private:
             }
             gettimeofday(&t0, NULL);
 
+            uint64_t baseClass = 0;
             std::vector<uint64_t> classList, versionList;
-            for (uint64_t i = restoreTask->targetVersion; i <= restoreTask->maxVersion - 1; i++) {
-                versionList.push_back(i);
-                printf("version # %lu is required\n", i);
+            if(restoreTask->fallBehind == 0){
+                for (uint64_t i = restoreTask->targetVersion; i <= restoreTask->maxVersion - 1; i++) {
+                    versionList.push_back(i);
+                    printf("version # %lu is required\n", i);
+                }
+                uint64_t baseClass = (restoreTask->maxVersion - 1) * restoreTask->maxVersion / 2 + 1;
+                for (uint64_t i = baseClass; i < baseClass + restoreTask->targetVersion; i++) {
+                    classList.push_back(i);
+                    printf("category # %lu is required\n", i);
+                }
+                printf("append category # %lu is optional\n", baseClass);
+            }else{
+                printf("Arrangement falls %lu versions behind\n", restoreTask->fallBehind);
+                // read the last version in previous OPT layout
+                printf("The last version in previous OPT layout..\n");
+                for (uint64_t i = restoreTask->targetVersion; i <= restoreTask->maxVersion - 1 - restoreTask->fallBehind; i++) {
+                    versionList.push_back(i);
+                    printf("version # %lu is required\n", i);
+                }
+                baseClass = (restoreTask->maxVersion - 1 - restoreTask->fallBehind) * (restoreTask->maxVersion - restoreTask->fallBehind) / 2 + 1;
+                for (uint64_t i = baseClass; i < baseClass + restoreTask->targetVersion; i++) {
+                    classList.push_back(i);
+                    printf("category # %lu is required\n", i);
+                }
+                printf("append category # %lu is optional\n", baseClass);
+                // read unique chunks of following versions.
+                printf("The new categories of following versions..\n");
+                for (uint64_t i = restoreTask->maxVersion - restoreTask->fallBehind + 1; i<= restoreTask->maxVersion; i++){
+                    classList.push_back(i*(i+1)/2);
+                    printf("category # %lu is required\n", i*(i+1)/2);
+                }
             }
-            uint64_t baseClass = (restoreTask->maxVersion - 1) * restoreTask->maxVersion / 2 + 1;
-            for (uint64_t i = baseClass; i < baseClass + restoreTask->targetVersion; i++) {
-                classList.push_back(i);
-                printf("category # %lu is required\n", i);
-            }
-            printf("append category # %lu is optional\n", baseClass);
+
 
             for (auto &item : versionList) {
                 readFromVersionFile(item, restoreTask->targetVersion);

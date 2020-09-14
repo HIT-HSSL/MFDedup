@@ -47,7 +47,7 @@ uint64_t  do_backup(const std::string& path){
     return storageTask.length;
 }
 
-int do_restore(uint64_t version){
+int do_restore(uint64_t version, uint64_t fallBehind){
     struct timeval t0, t1;
 
     char recipePath[256];
@@ -57,6 +57,7 @@ int do_restore(uint64_t version){
     RestoreTask restoreTask = {
             TotalVersion,
             version,
+            fallBehind
     };
 
     GlobalRestoreReadPipelinePtr = new RestoreReadPipeline();
@@ -203,7 +204,7 @@ int main(int argc, char **argv) {
 
     }
     else if (FLAGS_task == restoreStr) {
-        do_restore(FLAGS_RestoreRecipe);
+        do_restore(FLAGS_RestoreRecipe, manifest.ArrangementFallBehind);
     }
     else if (FLAGS_task == eliminateStr) {
         Eliminator eliminator;

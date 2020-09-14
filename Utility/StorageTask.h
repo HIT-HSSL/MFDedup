@@ -69,6 +69,7 @@ struct StorageTask {
 struct RestoreTask {
     uint64_t maxVersion;
     uint64_t targetVersion;
+    uint64_t fallBehind;
 };
 
 struct RestoreParseTask {
