@@ -90,12 +90,12 @@ private:
 
 
             for (auto &item : versionList) {
-                readFromVersionFile(item, restoreTask->targetVersion);
+                readFromVolumeFile(item, restoreTask->targetVersion);
             }
             for (auto &item : classList) {
-                readFromClassFile(item);
+                readFromCategoryFile(item);
             }
-            readFromAppendClassFile(baseClass);
+            readFromAppendCategoryFile(baseClass);
 
             RestoreParseTask *restoreParseTask = new RestoreParseTask(true);
             GlobalRestoreParserPipelinePtr->addTask(restoreParseTask);
@@ -106,24 +106,24 @@ private:
         }
     }
 
-    int readFromVersionFile(uint64_t versionId, uint64_t restoreVersion) {
+    int readFromVolumeFile(uint64_t versionId, uint64_t restoreVersion) {
         sprintf(filePath, VersionFilePath.data(), versionId);
         FileOperator versionReader(filePath, FileOpenType::Read);
         FILE* versionFileFD = versionReader.getFP();
 
-        VersionFileHeader* versionFileHeader;
+        VolumeFileHeader* volumeFileHeader;
 
         uint64_t leftLength = 0;
         {
             uint8_t *readBuffer = (uint8_t *) malloc(FLAGS_RestoreReadBufferLength);
             uint64_t bytesToRead = FLAGS_RestoreReadBufferLength;
             uint64_t bytesFinallyRead = fread(readBuffer, 1, bytesToRead, versionFileFD);
-            versionFileHeader = (VersionFileHeader*)readBuffer;
-            uint64_t* offset = (uint64_t*)(readBuffer + sizeof(VersionFileHeader));
+            volumeFileHeader = (VolumeFileHeader*)readBuffer;
+            uint64_t* offset = (uint64_t*)(readBuffer + sizeof(VolumeFileHeader));
             for(int i=0; i<restoreVersion; i++){
                 leftLength += offset[i];
             }
-            uint64_t totalHeaderLength = sizeof(VersionFileHeader) + versionFileHeader->offsetCount * sizeof(uint64_t);
+            uint64_t totalHeaderLength = sizeof(VolumeFileHeader) + volumeFileHeader->offsetCount * sizeof(uint64_t);
 
             if(leftLength < bytesFinallyRead - totalHeaderLength){
                 RestoreParseTask* restoreParseTask = new RestoreParseTask(readBuffer, leftLength);
@@ -154,7 +154,7 @@ private:
     }
 
 
-    int readFromClassFile(uint64_t classId) {
+    int readFromCategoryFile(uint64_t classId) {
         sprintf(filePath, ClassFilePath.data(), classId);
         FileOperator classReader(filePath, FileOpenType::Read);
         int fd = classReader.getFd();
@@ -175,7 +175,7 @@ private:
         }
     }
 
-    int readFromAppendClassFile(uint64_t classId) {
+    int readFromAppendCategoryFile(uint64_t classId) {
         sprintf(filePath, ClassFileAppendPath.data(), classId);
         FileOperator classReader(filePath, FileOpenType::Read);
         if(classReader.ok()){

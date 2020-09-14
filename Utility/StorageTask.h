@@ -205,7 +205,7 @@ struct BlockHeader {
     uint64_t length;
 };
 
-struct VersionFileHeader {
+struct VolumeFileHeader {
     uint64_t offsetCount;
 };
 

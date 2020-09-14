@@ -63,7 +63,7 @@ private:
             }
 
             if(arrangementWriteTask->startFlag){
-                VersionFileHeader versionFileHeader = {
+                VolumeFileHeader versionFileHeader = {
                         .offsetCount = arrangementWriteTask->arrangementVersion
                 };
                 length = (uint64_t*)malloc(sizeof(uint64_t)*versionFileHeader.offsetCount);
@@ -77,7 +77,7 @@ private:
                 archivedFileOperator->trunc(GlobalMetadataManagerPtr->arrangementGetTruncateSize() + (arrangementWriteTask->arrangementVersion+1)*sizeof(uint64_t));
                 archivedFileOperator->seek(0);
                 archivedFileOperator->write((uint8_t*)&versionFileHeader, sizeof(uint64_t));
-                archivedFileOperator->seek(sizeof(VersionFileHeader) + sizeof(uint64_t) * versionFileHeader.offsetCount);
+                archivedFileOperator->seek(sizeof(VolumeFileHeader) + sizeof(uint64_t) * versionFileHeader.offsetCount);
                 archivedFileWriter = new BufferedFileWriter(archivedFileOperator, FLAGS_ArrangementFlushBufferLength, 4);
 
                 sprintf(pathBuffer, ClassFilePath.data(), baseClassId);
@@ -109,7 +109,7 @@ private:
                 delete archivedFileWriter;
                 archivedFileWriter = nullptr;
 
-                archivedFileOperator->seek(sizeof(VersionFileHeader));
+                archivedFileOperator->seek(sizeof(VolumeFileHeader));
                 archivedFileOperator->write((uint8_t *) length, sizeof(uint64_t) * currentVersion);
 
                 archivedFileOperator->fdatasync();

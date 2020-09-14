@@ -65,6 +65,8 @@ private:
 
         struct timeval t0, t1;
 
+        uint64_t readLength = 0;
+
         while (likely(runningFlag)) {
             {
                 MutexLockGuard mutexLockGuard(mutexLock);
@@ -81,6 +83,7 @@ private:
             gettimeofday(&t0, NULL);
 
             if (unlikely(restoreParseTask->endFlag)) {
+                printf("Read amplification : %f\n", (float)readLength / pos);
                 delete restoreParseTask;
                 RestoreWriteTask *restoreWriteTask = new RestoreWriteTask(true);
                 GlobalRestoreWritePipelinePtr->addTask(restoreWriteTask);
@@ -88,6 +91,8 @@ private:
                 duration += (t1.tv_sec-t0.tv_sec)*1000000 + t1.tv_usec - t0.tv_usec;
                 break;
             }
+
+            readLength += restoreParseTask->length - restoreParseTask->beginPos;
 
             uint64_t taskRemain = 0;
             if (leftLength + restoreParseTask->length > FLAGS_RestoreReadBufferLength) {

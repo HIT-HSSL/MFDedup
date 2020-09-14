@@ -60,8 +60,8 @@ private:
         sprintf(newPath, VersionFilePath.data(), versionId - 1);
         FileOperator fileOperator(oldPath, FileOpenType::ReadWrite);
 
-        VersionFileHeader versionFileHeader;
-        fileOperator.read((uint8_t * ) & versionFileHeader, sizeof(VersionFileHeader));
+        VolumeFileHeader versionFileHeader;
+        fileOperator.read((uint8_t * ) & versionFileHeader, sizeof(VolumeFileHeader));
         uint64_t *offset = (uint64_t *) malloc(versionFileHeader.offsetCount * sizeof(uint64_t));
         fileOperator.read((uint8_t *) offset, versionFileHeader.offsetCount * sizeof(uint64_t));
         offset[0] += offset[1];
@@ -69,7 +69,7 @@ private:
             offset[i] = offset[i + 1];
         }
         offset[versionFileHeader.offsetCount - 1] = -1;
-        fileOperator.seek(sizeof(VersionFileHeader));
+        fileOperator.seek(sizeof(VolumeFileHeader));
         fileOperator.write((uint8_t *) offset, versionFileHeader.offsetCount * sizeof(uint64_t));
 
         rename(oldPath, newPath);
