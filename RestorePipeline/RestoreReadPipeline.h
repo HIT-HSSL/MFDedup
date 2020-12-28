@@ -1,7 +1,4 @@
-//
-// Created by Borelset on 2020/5/27.
-//
-//  Copyright (C) 2020-present, Xiangyu Zou. All rights reserved.
+//  Copyright (c) Xiangyu Zou, 2020. All rights reserved.
 //  This source code is licensed under the GPLv2
 
 #ifndef MFDEDUP_RESTOREREADPIPELINE_H
@@ -67,9 +64,10 @@ private:
                 }
                 printf("append category # %lu is optional\n", baseClass);
             }else{
+                //processing when arrangement falls behind.
                 printf("Arrangement falls %lu versions behind\n", restoreTask->fallBehind);
                 // read the last version in previous OPT layout
-                printf("The last version in previous OPT layout..\n");
+                printf("Load the last version in existing OPT layout..\n");
                 for (uint64_t i = restoreTask->targetVersion; i <= restoreTask->maxVersion - 1 - restoreTask->fallBehind; i++) {
                     versionList.push_back(i);
                     printf("version # %lu is required\n", i);
@@ -176,6 +174,7 @@ private:
     }
 
     int readFromAppendCategoryFile(uint64_t classId) {
+        printf("Trying to load append file.\n");
         sprintf(filePath, ClassFileAppendPath.data(), classId);
         FileOperator classReader(filePath, FileOpenType::Read);
         if(classReader.ok()){
@@ -195,6 +194,8 @@ private:
                 restoreParseTask->index = classId;
                 GlobalRestoreParserPipelinePtr->addTask(restoreParseTask);
             }
+        }else{
+            printf("Append file not exists, ignore it.\n");
         }
     }
 

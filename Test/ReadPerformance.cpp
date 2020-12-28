@@ -1,7 +1,3 @@
-//
-// Created by Borelset on 2020/5/29.
-//
-
 #include <sys/time.h>
 #include <assert.h>
 #include "gflags/gflags.h"

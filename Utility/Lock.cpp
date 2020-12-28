@@ -1,6 +1,3 @@
-//
-// Created by BorelsetR on 2019/7/17.
-//
 #include <assert.h>
 #include "Lock.h"
 

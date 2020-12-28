@@ -1,7 +1,4 @@
-//
-// Created by Borelset on 2019/8/31.
-//
-//  Copyright (C) 2020-present, Xiangyu Zou. All rights reserved.
+//  Copyright (c) Xiangyu Zou, 2020. All rights reserved.
 //  This source code is licensed under the GPLv2
 
 #ifndef MFDEDUP_HASHINGPIPELINE_H

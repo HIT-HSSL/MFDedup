@@ -1,7 +1,3 @@
-//
-// Created by Borelset on 2020/5/24.
-//
-
 #ifndef MFDEDUP_LIKELY_H
 #define MFDEDUP_LIKELY_H
 

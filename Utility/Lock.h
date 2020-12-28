@@ -1,7 +1,3 @@
-//
-// Created by BorelsetR on 2019/7/17.
-//
-
 #ifndef REDUNDANCY_DETECTION_LOCK_H
 #define REDUNDANCY_DETECTION_LOCK_H
 

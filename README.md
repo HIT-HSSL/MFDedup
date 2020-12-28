@@ -13,7 +13,7 @@ Variant B - inline deduplication and offline arrangement
 cd build
 cmake ..
 make -j 4
-./build.sh [Working path, identical to "path" in config file.]
+./build.sh [working path, identical to "path" in config file.]
 ```
 
 ### Usage:
@@ -22,14 +22,14 @@ make -j 4
 ```
 cd build
 chmod +x init.sh
-./init.sh [Working path, identical to "path" in config file.]
+./init.sh [working path, identical to "path" in config file.]
 ```
 
 + Backup a new workload into the system, which includes backup workflow, arrangement workflow, and deletion workflow when exceeding the retaining limit.
 ```
-./MFDedup --ConfigFile=[config file] --task=write --InputFile=[backup workload]
+./MFDedup --ConfigFile=[config file path] --task=write --InputFile=[backup workload]
 ```
-example/config.toml is an example for config file.
+build/config.toml is an example for config file.
      
 + Restore a version of from the system
 ```

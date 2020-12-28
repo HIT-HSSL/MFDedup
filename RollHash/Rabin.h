@@ -1,7 +1,3 @@
-//
-// Created by BorelsetR on 2019/7/16.
-//
-
 #ifndef REDUNDANCY_DETECTION_RABIN_H
 #define REDUNDANCY_DETECTION_RABIN_H
 

@@ -1,7 +1,3 @@
-//
-// Created by BorelsetR on 2019/7/23.
-//
-
 #ifndef MDFDEDUP_STORAGETASK_H
 #define MDFDEDUP_STORAGETASK_H
 

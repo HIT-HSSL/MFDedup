@@ -1,7 +1,4 @@
-//
-// Created by Borelset on 2020/5/24.
-//
-//  Copyright (C) 2020-present, Xiangyu Zou. All rights reserved.
+//  Copyright (c) Xiangyu Zou, 2020. All rights reserved.
 //  This source code is licensed under the GPLv2
 
 #ifndef MFDEDUP_ELIMINATOR_H

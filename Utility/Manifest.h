@@ -1,7 +1,3 @@
-//
-// Created by Borelset on 2020/6/19.
-//
-
 #ifndef MFDEDUP_MANIFEST_H
 #define MFDEDUP_MANIFEST_H
 
