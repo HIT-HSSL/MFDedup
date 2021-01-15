@@ -4,7 +4,7 @@ Variant B - inline deduplication and offline arrangement
 
 The naming style of categories in this implement (serial number style) is little different from that in the paper (coordinate style).
 ```
-Category(X,Y) => Category<sub>X(X-1)/2+Y</sub>
+Category(X,Y) => Category X(X-1)/2+Y
 ```
 
 
