@@ -2,6 +2,9 @@
 A Management Friendly Deduplication Prototype System for Backup    
 Variant B - inline deduplication and offline arrangement
 
+The naming style of categories in this implement (serial number style) is little different from that in the paper (coordinate style).
+Category(X,Y) => Category<sub>X(X-1)/2+Y</sub>
+
 ### Requirement:
 + isal_crypto
 + jemalloc
