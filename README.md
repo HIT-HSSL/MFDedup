@@ -7,7 +7,6 @@ The naming style of categories in this implement (serial number style) is little
 Category X(X-1)/2+Y <= Category(X,Y)
 ```
 
-
 ### Requirement:
 + isal_crypto
 + jemalloc
@@ -45,4 +44,7 @@ build/config.toml is an example of config file.
 MFDedup --help
 ```
 
-
+### Related Publication
+Xiangyu Zou, Jingsong Yuan, Philip Shilane, Wen Xia, Haijun Zhang, and Xuan Wang, 
+"The Dilemma between Deduplication and Locality: Can Both be Achieved?", 
+in Proceedings of the 19th USENIX Conference on File and Storage Technologies (FAST '21), Santa Clara, CA, USA, Feb. 2021.
