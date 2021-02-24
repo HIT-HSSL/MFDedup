@@ -49,7 +49,9 @@ Xiangyu Zou, Jingsong Yuan, Philip Shilane, Wen Xia, Haijun Zhang, and Xuan Wang
 in Proceedings of the 19th USENIX Conference on File and Storage Technologies (FAST '21), Santa Clara, CA, USA, Feb. 2021.
 
 ### Tips
-The naming style of categories in this implement (serial number style) is little different from that in the paper (coordinate style).
+The naming style of categories in this implement (serial number style) is different from that in our paper (coordinate style).
+The mapping relationship is as:
 ```
-Category X(X-1)/2+Y <= Category(X,Y)
+Serial Number Style      Coordinate Style
+Category X(X-1)/2+Y  <=  Category(X,Y)
 ```
