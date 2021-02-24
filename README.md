@@ -27,13 +27,13 @@ chmod +x init.sh
 ./init.sh [working path, identical to "path" in config file.]
 ```
 
-+ Backup a new workload into the system, which includes backup workflow, arrangement workflow, and deletion workflow when exceeding the retaining limit.
++ Backup a new workload into the system, which includes backup workflow, arranging workflow, and deletion workflow when exceeding the retaining limit.
 ```
 ./MFDedup --ConfigFile=[config file path] --task=write --InputFile=[backup workload]
 ```
 build/config.toml is an example of config file.
      
-+ Restore a version of from the system
++ Restore a workload of from the system
 ```
 ./MFDedup --ConfigFile=[config file path] --task=restore --RestorePath=[path to restore] --RestoreRecipe=[which version to restore(1 ~ no. of the last retained version)]
 ```  
