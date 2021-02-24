@@ -44,9 +44,10 @@ MFDedup --help
 ```
 
 ### Related Publication
-Xiangyu Zou, Jingsong Yuan, Philip Shilane, Wen Xia, Haijun Zhang, and Xuan Wang, 
-"[The Dilemma between Deduplication and Locality: Can Both be Achieved?][https://www.usenix.org/conference/fast21/presentation/zou]", 
-in Proceedings of the 19th USENIX Conference on File and Storage Technologies (FAST '21), Santa Clara, CA, USA, Feb. 2021.
+Xiangyu Zou, Jingsong Yuan, Philip Shilane, Wen Xia, Haijun Zhang, and Xuan Wang,
+"<a href="https://www.usenix.org/conference/fast21/presentation/zou">The Dilemma between Deduplication and Locality: Can Both be Achieved?</a>",
+in Proceedings of the 19th USENIX Conference on File and Storage Technologies (FAST '21),
+Santa Clara, CA, USA, Feb. 2021.
 
 ### Tips
 The naming style of categories in this implement (serial number style) is different from that in our paper (coordinate style).
